@@ -1,0 +1,212 @@
+#include "logic_unit.h"
+#include "../../core/gates/gates.h"
+
+void and_word_32(bit *a, bit *b, bit *result) {
+    result[0] = AND(a[0], b[0]);
+    result[1] = AND(a[1], b[1]);
+    result[2] = AND(a[2], b[2]);
+    result[3] = AND(a[3], b[3]);
+    result[4] = AND(a[4], b[4]);
+    result[5] = AND(a[5], b[5]);
+    result[6] = AND(a[6], b[6]);
+    result[7] = AND(a[7], b[7]);
+    result[8] = AND(a[8], b[8]);
+    result[9] = AND(a[9], b[9]);
+    result[10] = AND(a[10], b[10]);
+    result[11] = AND(a[11], b[11]);
+    result[12] = AND(a[12], b[12]);
+    result[13] = AND(a[13], b[13]);
+    result[14] = AND(a[14], b[14]);
+    result[15] = AND(a[15], b[15]);
+    result[16] = AND(a[16], b[16]);
+    result[17] = AND(a[17], b[17]);
+    result[18] = AND(a[18], b[18]);
+    result[19] = AND(a[19], b[19]);
+    result[20] = AND(a[20], b[20]);
+    result[21] = AND(a[21], b[21]);
+    result[22] = AND(a[22], b[22]);
+    result[23] = AND(a[23], b[23]);
+    result[24] = AND(a[24], b[24]);
+    result[25] = AND(a[25], b[25]);
+    result[26] = AND(a[26], b[26]);
+    result[27] = AND(a[27], b[27]);
+    result[28] = AND(a[28], b[28]);
+    result[29] = AND(a[29], b[29]);
+    result[30] = AND(a[30], b[30]);
+    result[31] = AND(a[31], b[31]);
+}
+
+void or_word_32(bit *a, bit *b, bit *result) {
+    result[0] = OR(a[0], b[0]);
+    result[1] = OR(a[1], b[1]);
+    result[2] = OR(a[2], b[2]);
+    result[3] = OR(a[3], b[3]);
+    result[4] = OR(a[4], b[4]);
+    result[5] = OR(a[5], b[5]);
+    result[6] = OR(a[6], b[6]);
+    result[7] = OR(a[7], b[7]);
+    result[8] = OR(a[8], b[8]);
+    result[9] = OR(a[9], b[9]);
+    result[10] = OR(a[10], b[10]);
+    result[11] = OR(a[11], b[11]);
+    result[12] = OR(a[12], b[12]);
+    result[13] = OR(a[13], b[13]);
+    result[14] = OR(a[14], b[14]);
+    result[15] = OR(a[15], b[15]);
+    result[16] = OR(a[16], b[16]);
+    result[17] = OR(a[17], b[17]);
+    result[18] = OR(a[18], b[18]);
+    result[19] = OR(a[19], b[19]);
+    result[20] = OR(a[20], b[20]);
+    result[21] = OR(a[21], b[21]);
+    result[22] = OR(a[22], b[22]);
+    result[23] = OR(a[23], b[23]);
+    result[24] = OR(a[24], b[24]);
+    result[25] = OR(a[25], b[25]);
+    result[26] = OR(a[26], b[26]);
+    result[27] = OR(a[27], b[27]);
+    result[28] = OR(a[28], b[28]);
+    result[29] = OR(a[29], b[29]);
+    result[30] = OR(a[30], b[30]);
+    result[31] = OR(a[31], b[31]);
+}
+
+void xor_word_32(bit *a, bit *b, bit *result) {
+    result[0] = XOR(a[0], b[0]);
+    result[1] = XOR(a[1], b[1]);
+    result[2] = XOR(a[2], b[2]);
+    result[3] = XOR(a[3], b[3]);
+    result[4] = XOR(a[4], b[4]);
+    result[5] = XOR(a[5], b[5]);
+    result[6] = XOR(a[6], b[6]);
+    result[7] = XOR(a[7], b[7]);
+    result[8] = XOR(a[8], b[8]);
+    result[9] = XOR(a[9], b[9]);
+    result[10] = XOR(a[10], b[10]);
+    result[11] = XOR(a[11], b[11]);
+    result[12] = XOR(a[12], b[12]);
+    result[13] = XOR(a[13], b[13]);
+    result[14] = XOR(a[14], b[14]);
+    result[15] = XOR(a[15], b[15]);
+    result[16] = XOR(a[16], b[16]);
+    result[17] = XOR(a[17], b[17]);
+    result[18] = XOR(a[18], b[18]);
+    result[19] = XOR(a[19], b[19]);
+    result[20] = XOR(a[20], b[20]);
+    result[21] = XOR(a[21], b[21]);
+    result[22] = XOR(a[22], b[22]);
+    result[23] = XOR(a[23], b[23]);
+    result[24] = XOR(a[24], b[24]);
+    result[25] = XOR(a[25], b[25]);
+    result[26] = XOR(a[26], b[26]);
+    result[27] = XOR(a[27], b[27]);
+    result[28] = XOR(a[28], b[28]);
+    result[29] = XOR(a[29], b[29]);
+    result[30] = XOR(a[30], b[30]);
+    result[31] = XOR(a[31], b[31]);
+}
+
+void not_word_32(bit *a, bit *result) {
+    result[0] = NOT(a[0]);
+    result[1] = NOT(a[1]);
+    result[2] = NOT(a[2]);
+    result[3] = NOT(a[3]);
+    result[4] = NOT(a[4]);
+    result[5] = NOT(a[5]);
+    result[6] = NOT(a[6]);
+    result[7] = NOT(a[7]);
+    result[8] = NOT(a[8]);
+    result[9] = NOT(a[9]);
+    result[10] = NOT(a[10]);
+    result[11] = NOT(a[11]);
+    result[12] = NOT(a[12]);
+    result[13] = NOT(a[13]);
+    result[14] = NOT(a[14]);
+    result[15] = NOT(a[15]);
+    result[16] = NOT(a[16]);
+    result[17] = NOT(a[17]);
+    result[18] = NOT(a[18]);
+    result[19] = NOT(a[19]);
+    result[20] = NOT(a[20]);
+    result[21] = NOT(a[21]);
+    result[22] = NOT(a[22]);
+    result[23] = NOT(a[23]);
+    result[24] = NOT(a[24]);
+    result[25] = NOT(a[25]);
+    result[26] = NOT(a[26]);
+    result[27] = NOT(a[27]);
+    result[28] = NOT(a[28]);
+    result[29] = NOT(a[29]);
+    result[30] = NOT(a[30]);
+    result[31] = NOT(a[31]);
+}
+
+void nand_word_32(bit *a, bit *b, bit *result) {
+    result[0] = NAND(a[0], b[0]);
+    result[1] = NAND(a[1], b[1]);
+    result[2] = NAND(a[2], b[2]);
+    result[3] = NAND(a[3], b[3]);
+    result[4] = NAND(a[4], b[4]);
+    result[5] = NAND(a[5], b[5]);
+    result[6] = NAND(a[6], b[6]);
+    result[7] = NAND(a[7], b[7]);
+    result[8] = NAND(a[8], b[8]);
+    result[9] = NAND(a[9], b[9]);
+    result[10] = NAND(a[10], b[10]);
+    result[11] = NAND(a[11], b[11]);
+    result[12] = NAND(a[12], b[12]);
+    result[13] = NAND(a[13], b[13]);
+    result[14] = NAND(a[14], b[14]);
+    result[15] = NAND(a[15], b[15]);
+    result[16] = NAND(a[16], b[16]);
+    result[17] = NAND(a[17], b[17]);
+    result[18] = NAND(a[18], b[18]);
+    result[19] = NAND(a[19], b[19]);
+    result[20] = NAND(a[20], b[20]);
+    result[21] = NAND(a[21], b[21]);
+    result[22] = NAND(a[22], b[22]);
+    result[23] = NAND(a[23], b[23]);
+    result[24] = NAND(a[24], b[24]);
+    result[25] = NAND(a[25], b[25]);
+    result[26] = NAND(a[26], b[26]);
+    result[27] = NAND(a[27], b[27]);
+    result[28] = NAND(a[28], b[28]);
+    result[29] = NAND(a[29], b[29]);
+    result[30] = NAND(a[30], b[30]);
+    result[31] = NAND(a[31], b[31]);
+}
+
+void nor_word_32(bit *a, bit *b, bit *result) {
+    result[0] = NOR(a[0], b[0]);
+    result[1] = NOR(a[1], b[1]);
+    result[2] = NOR(a[2], b[2]);
+    result[3] = NOR(a[3], b[3]);
+    result[4] = NOR(a[4], b[4]);
+    result[5] = NOR(a[5], b[5]);
+    result[6] = NOR(a[6], b[6]);
+    result[7] = NOR(a[7], b[7]);
+    result[8] = NOR(a[8], b[8]);
+    result[9] = NOR(a[9], b[9]);
+    result[10] = NOR(a[10], b[10]);
+    result[11] = NOR(a[11], b[11]);
+    result[12] = NOR(a[12], b[12]);
+    result[13] = NOR(a[13], b[13]);
+    result[14] = NOR(a[14], b[14]);
+    result[15] = NOR(a[15], b[15]);
+    result[16] = NOR(a[16], b[16]);
+    result[17] = NOR(a[17], b[17]);
+    result[18] = NOR(a[18], b[18]);
+    result[19] = NOR(a[19], b[19]);
+    result[20] = NOR(a[20], b[20]);
+    result[21] = NOR(a[21], b[21]);
+    result[22] = NOR(a[22], b[22]);
+    result[23] = NOR(a[23], b[23]);
+    result[24] = NOR(a[24], b[24]);
+    result[25] = NOR(a[25], b[25]);
+    result[26] = NOR(a[26], b[26]);
+    result[27] = NOR(a[27], b[27]);
+    result[28] = NOR(a[28], b[28]);
+    result[29] = NOR(a[29], b[29]);
+    result[30] = NOR(a[30], b[30]);
+    result[31] = NOR(a[31], b[31]);
+}
