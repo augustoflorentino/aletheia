@@ -51,8 +51,7 @@ static void test_adder_32_exhaustive_carry(void) {
 
     uint32_t vectors[] = {
         0u, 1u, 2u, 0xFFFFFFFFu, 0x7FFFFFFFu, 0x80000000u,
-        0xDEADBEEFu, 0x12345678u, 0xFFFF0000u, 0x0000FFFFu
-    };
+        0xDEADBEEFu, 0x12345678u, 0xFFFF0000u, 0x0000FFFFu};
     int n = (int)(sizeof(vectors) / sizeof(vectors[0]));
     int i, j;
     for (i = 0; i < n; i++) {

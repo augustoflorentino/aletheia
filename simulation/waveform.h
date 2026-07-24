@@ -5,7 +5,7 @@
 #include "../core/types.h"
 #include "scheduler.h"
 
-#define MAX_VCD_SIGNALS 256
+#define MAX_VCD_SIGNALS     256
 #define MAX_SIGNAL_NAME_LEN 64
 
 typedef struct {

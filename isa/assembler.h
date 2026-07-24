@@ -3,9 +3,9 @@
 
 #include "encoding.h"
 
-#define MAX_LABELS 64
+#define MAX_LABELS     64
 #define MAX_LABEL_NAME 32
-#define MAX_LINE_LEN 256
+#define MAX_LINE_LEN   256
 
 typedef struct {
     char name[MAX_LABEL_NAME];

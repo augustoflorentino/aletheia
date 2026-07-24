@@ -161,8 +161,7 @@ static void run_demo_program(simulator_t *sim) {
         encode_i_type(OP_ADDI, REG_ZERO, REG_T1, 10),
         encode_r_type(REG_T0, REG_T1, REG_T2, 0, FUNCT_ADD),
         encode_i_type(OP_SW, REG_ZERO, REG_T2, 0),
-        0
-    };
+        0};
 
     printf("Demo program:\n");
     for (int i = 0; i < 5; i++) {

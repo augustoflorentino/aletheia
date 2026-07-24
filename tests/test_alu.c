@@ -8,12 +8,12 @@ static const char *op_name(int op) {
         case ALU_OP_ADD: return "ADD";
         case ALU_OP_SUB: return "SUB";
         case ALU_OP_AND: return "AND";
-        case ALU_OP_OR:  return "OR";
+        case ALU_OP_OR: return "OR";
         case ALU_OP_XOR: return "XOR";
         case ALU_OP_NOT: return "NOT";
         case ALU_OP_SHL: return "SHL";
         case ALU_OP_SHR: return "SHR";
-        default:         return "?";
+        default: return "?";
     }
 }
 
@@ -46,8 +46,7 @@ static void test_alu_directed(void) {
 
     uint32_t edges[] = {
         0u, 1u, 2u, 0xFFFFFFFFu, 0x7FFFFFFFu, 0x80000000u,
-        0x0000FFFFu, 0xFFFF0000u, 0xAAAAAAAAu, 0x55555555u, 31u
-    };
+        0x0000FFFFu, 0xFFFF0000u, 0xAAAAAAAAu, 0x55555555u, 31u};
     int n = (int)(sizeof(edges) / sizeof(edges[0]));
     int op, i, j;
     for (op = 0; op < 8; op++) {

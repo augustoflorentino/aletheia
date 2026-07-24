@@ -33,7 +33,10 @@ static void test_adder32_critical(void) {
 
     tsig a[32], b[32], result[32], cout;
     int i;
-    for (i = 0; i < 32; i++) { a[i] = ts(1); b[i] = ts(1); }
+    for (i = 0; i < 32; i++) {
+        a[i] = ts(1);
+        b[i] = ts(1);
+    }
 
     tgate_reset_critical();
     t_adder32(a, b, ts(0), result, &cout);
@@ -47,7 +50,10 @@ static sim_time_t alu_select_delay(void) {
     tgate_set_delay(1);
     tsig a[32], b[32], result[32], cout;
     int i;
-    for (i = 0; i < 32; i++) { a[i] = ts(1); b[i] = ts(0); }
+    for (i = 0; i < 32; i++) {
+        a[i] = ts(1);
+        b[i] = ts(0);
+    }
     tgate_reset_critical();
     t_adder32(a, b, ts(0), result, &cout);
 
@@ -100,8 +106,7 @@ static void test_datapath_fmax(void) {
 
     sim_time_t decode_or_read = d_decode > d_regread ? d_decode : d_regread;
 
-    sim_time_t critical = clk_to_q + mem_access + decode_or_read
-                        + d_alu + mem_access + d_wbmux + setup;
+    sim_time_t critical = clk_to_q + mem_access + decode_or_read + d_alu + mem_access + d_wbmux + setup;
 
     printf("  clk->q           : %llu\n", clk_to_q);
     printf("  instr mem access : %llu\n", mem_access);

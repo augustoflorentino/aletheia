@@ -1,16 +1,28 @@
 #include "assembler.h"
 
 static int a_strcmp(const char *a, const char *b) {
-    while (*a && (*a == *b)) { a++; b++; }
+    while (*a && (*a == *b)) {
+        a++;
+        b++;
+    }
     return (int)(unsigned char)*a - (int)(unsigned char)*b;
 }
 static void a_strncpy(char *d, const char *s, int n) {
     int i = 0;
-    while (i < n && s[i]) { d[i] = s[i]; i++; }
-    while (i < n) { d[i] = '\0'; i++; }
+    while (i < n && s[i]) {
+        d[i] = s[i];
+        i++;
+    }
+    while (i < n) {
+        d[i] = '\0';
+        i++;
+    }
 }
 static char *a_strchr(char *s, char c) {
-    while (*s) { if (*s == c) return s; s++; }
+    while (*s) {
+        if (*s == c) return s;
+        s++;
+    }
     if (c == '\0') return s;
     return 0;
 }
@@ -21,20 +33,28 @@ static char a_tolower(char c) {
 static int a_parse_int(const char *str) {
     while (*str == ' ' || *str == '\t') str++;
     int neg = 0;
-    if (*str == '-') { neg = 1; str++; }
+    if (*str == '-') {
+        neg = 1;
+        str++;
+    }
     int val = 0;
     if (str[0] == '0' && str[1] == 'x') {
         str += 2;
         while (*str) {
-            char c = *str; int d;
+            char c = *str;
+            int d;
             if (c >= '0' && c <= '9') d = c - '0';
             else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
             else if (c >= 'A' && c <= 'F') d = c - 'A' + 10;
             else break;
-            val = val * 16 + d; str++;
+            val = val * 16 + d;
+            str++;
         }
     } else {
-        while (*str >= '0' && *str <= '9') { val = val * 10 + (*str - '0'); str++; }
+        while (*str >= '0' && *str <= '9') {
+            val = val * 10 + (*str - '0');
+            str++;
+        }
     }
     return neg ? -val : val;
 }
@@ -125,12 +145,12 @@ int assembler_parse_address(const char *str) {
     return assembler_parse_immediate(str);
 }
 
-static char* skip_whitespace(char *str) {
+static char *skip_whitespace(char *str) {
     while (*str == ' ' || *str == '\t') str++;
     return str;
 }
 
-static char* get_token(char *str, char *token, int max_len) {
+static char *get_token(char *str, char *token, int max_len) {
     str = skip_whitespace(str);
     int i = 0;
     while (*str && *str != ' ' && *str != '\t' && *str != ',' && *str != '(' && *str != ')' && *str != '\n' && *str != '\r' && i < max_len - 1) {
@@ -295,4 +315,3 @@ unsigned int assembler_assemble_line(assembler_t *as, const char *line) {
 
     return 0;
 }
-

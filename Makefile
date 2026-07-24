@@ -96,4 +96,12 @@ check-compliance:
 	@! grep -rn --include="*.c" -E '\bswitch\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
 	@echo "Compliance check complete"
 
-.PHONY: all clean check-compliance test test-san
+FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h))
+
+format:
+	@clang-format -i $(FORMAT_SRCS)
+
+format-check:
+	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
+
+.PHONY: all clean check-compliance test test-san format format-check

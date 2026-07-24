@@ -6,7 +6,10 @@
 
 #define NL_MAX 200000
 
-enum { NL_CONST0, NL_CONST1, NL_INPUT, NL_NAND };
+enum { NL_CONST0,
+       NL_CONST1,
+       NL_INPUT,
+       NL_NAND };
 
 typedef struct {
     int type;
@@ -34,19 +37,44 @@ static inline int nl_new(int type, int a, int b, int in_idx) {
     return id;
 }
 
-static inline int nl_const0(void) { return nl_new(NL_CONST0, 0, 0, 0); }
-static inline int nl_const1(void) { return nl_new(NL_CONST1, 0, 0, 0); }
-static inline int nl_input(void)  { int idx = nl_inputs++; return nl_new(NL_INPUT, 0, 0, idx); }
+static inline int nl_const0(void) {
+    return nl_new(NL_CONST0, 0, 0, 0);
+}
+static inline int nl_const1(void) {
+    return nl_new(NL_CONST1, 0, 0, 0);
+}
+static inline int nl_input(void) {
+    int idx = nl_inputs++;
+    return nl_new(NL_INPUT, 0, 0, idx);
+}
 
-static inline int nl_nand(int a, int b) { nl_nands++; return nl_new(NL_NAND, a, b, 0); }
+static inline int nl_nand(int a, int b) {
+    nl_nands++;
+    return nl_new(NL_NAND, a, b, 0);
+}
 
-static inline int nl_not(int a)         { return nl_nand(a, a); }
-static inline int nl_and(int a, int b)  { return nl_not(nl_nand(a, b)); }
-static inline int nl_or(int a, int b)   { return nl_nand(nl_not(a), nl_not(b)); }
-static inline int nl_nor(int a, int b)  { return nl_not(nl_or(a, b)); }
-static inline int nl_xor(int a, int b)  { int c = nl_nand(a, b); return nl_nand(nl_nand(a, c), nl_nand(b, c)); }
-static inline int nl_xnor(int a, int b) { return nl_not(nl_xor(a, b)); }
-static inline int nl_mux(int a, int b, int s) { return nl_or(nl_and(a, nl_not(s)), nl_and(b, s)); }
+static inline int nl_not(int a) {
+    return nl_nand(a, a);
+}
+static inline int nl_and(int a, int b) {
+    return nl_not(nl_nand(a, b));
+}
+static inline int nl_or(int a, int b) {
+    return nl_nand(nl_not(a), nl_not(b));
+}
+static inline int nl_nor(int a, int b) {
+    return nl_not(nl_or(a, b));
+}
+static inline int nl_xor(int a, int b) {
+    int c = nl_nand(a, b);
+    return nl_nand(nl_nand(a, c), nl_nand(b, c));
+}
+static inline int nl_xnor(int a, int b) {
+    return nl_not(nl_xor(a, b));
+}
+static inline int nl_mux(int a, int b, int s) {
+    return nl_or(nl_and(a, nl_not(s)), nl_and(b, s));
+}
 
 static void nl_eval(const bit *input_vals, bit *node_vals) {
     int i;

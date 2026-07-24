@@ -4,11 +4,25 @@
 #include "../cpu/pipeline/forwarding.h"
 #include "../cpu/alu/alu.h"
 
-typedef struct { int valid; int rs, rt, rd; uint32_t rsv, rtv; } idex_t;
-typedef struct { int valid; int rd; uint32_t result; } exmem_t;
-typedef struct { int valid; int rd; uint32_t value; } memwb_t;
+typedef struct {
+    int valid;
+    int rs, rt, rd;
+    uint32_t rsv, rtv;
+} idex_t;
+typedef struct {
+    int valid;
+    int rd;
+    uint32_t result;
+} exmem_t;
+typedef struct {
+    int valid;
+    int rd;
+    uint32_t value;
+} memwb_t;
 
-typedef struct { int rs, rt, rd; } rtype_t;
+typedef struct {
+    int rs, rt, rd;
+} rtype_t;
 
 static void rf_write(register_file_t *rf, int idx, uint32_t v) {
     bit a[5], d[32];
@@ -97,8 +111,12 @@ static void run_pipeline(rtype_t *prog, int n, int apply_fwd, uint32_t *regs_out
         }
         uint32_t exres = alu_add(opa, opb);
 
-        exmem.valid = oi.valid; exmem.rd = oi.rd; exmem.result = exres;
-        memwb.valid = oe.valid; memwb.rd = oe.rd; memwb.value = oe.result;
+        exmem.valid = oi.valid;
+        exmem.rd = oi.rd;
+        exmem.result = exres;
+        memwb.valid = oe.valid;
+        memwb.rd = oe.rd;
+        memwb.value = oe.result;
 
         if (ifid_valid) {
             idex.valid = 1;
@@ -127,7 +145,9 @@ static void run_pipeline(rtype_t *prog, int n, int apply_fwd, uint32_t *regs_out
 static void ref_exec(rtype_t *prog, int n, uint32_t *regs) {
     int i;
     for (i = 0; i < 8; i++) regs[i] = 0;
-    regs[1] = 10; regs[2] = 20; regs[3] = 100;
+    regs[1] = 10;
+    regs[2] = 20;
+    regs[3] = 100;
     for (i = 0; i < n; i++) {
         regs[prog[i].rd] = regs[prog[i].rs] + regs[prog[i].rt];
     }
@@ -136,7 +156,7 @@ static void ref_exec(rtype_t *prog, int n, uint32_t *regs) {
 static void test_forwarding_resolves(void) {
     test_suite("pipeline regression: forwarding resolves RAW hazards");
 
-    rtype_t prog[] = { {1, 2, 4}, {4, 3, 5}, {4, 5, 6} };
+    rtype_t prog[] = {{1, 2, 4}, {4, 3, 5}, {4, 5, 6}};
     int n = 3;
 
     uint32_t ref[8], piped[8];
@@ -151,7 +171,7 @@ static void test_forwarding_resolves(void) {
 static void test_without_forwarding_diverges(void) {
     test_suite("pipeline regression: WITHOUT forwarding it diverges (hazard real)");
 
-    rtype_t prog[] = { {1, 2, 4}, {4, 3, 5}, {4, 5, 6} };
+    rtype_t prog[] = {{1, 2, 4}, {4, 3, 5}, {4, 5, 6}};
     int n = 3;
 
     uint32_t ref[8], nofwd[8];

@@ -97,11 +97,17 @@ static void test_forwarding(void) {
 
         if ((k % 6) == 0) ex_rd = rs;
         if ((k % 6) == 1) wb_rd = rs;
-        if ((k % 6) == 2) { ex_rd = rs; wb_rd = rs; }
+        if ((k % 6) == 2) {
+            ex_rd = rs;
+            wb_rd = rs;
+        }
         if ((k % 6) == 3) ex_rd = rt;
 
         bit b_rs[5], b_rt[5], b_ex[5], b_wb[5];
-        set5(b_rs, rs); set5(b_rt, rt); set5(b_ex, ex_rd); set5(b_wb, wb_rd);
+        set5(b_rs, rs);
+        set5(b_rt, rt);
+        set5(b_ex, ex_rd);
+        set5(b_wb, wb_rd);
         forwarding_set_id_ex_rs(&fu, b_rs);
         forwarding_set_id_ex_rt(&fu, b_rt);
         forwarding_set_ex_mem_rd(&fu, b_ex);

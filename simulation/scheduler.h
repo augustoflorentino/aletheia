@@ -3,7 +3,7 @@
 
 #include "../core/types.h"
 
-#define MAX_EVENTS 256
+#define MAX_EVENTS     256
 #define MAX_COMPONENTS 64
 
 typedef unsigned long long sim_time_t;

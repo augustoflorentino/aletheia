@@ -1,20 +1,36 @@
 #include "disassembler.h"
 
 static void a_puts(char **o, const char *s) {
-    while (*s) { **o = *s; (*o)++; s++; }
+    while (*s) {
+        **o = *s;
+        (*o)++;
+        s++;
+    }
 }
 static void a_putc(char **o, char c) {
-    **o = c; (*o)++;
+    **o = c;
+    (*o)++;
 }
 static void a_dec(char **o, int v) {
     char tmp[12];
     int n = 0;
     unsigned int u;
-    if (v < 0) { a_putc(o, '-'); u = (unsigned int)(-(long)v); }
-    else u = (unsigned int)v;
-    if (u == 0) { a_putc(o, '0'); return; }
-    while (u > 0) { tmp[n++] = (char)('0' + (u % 10u)); u /= 10u; }
-    while (n > 0) { n--; a_putc(o, tmp[n]); }
+    if (v < 0) {
+        a_putc(o, '-');
+        u = (unsigned int)(-(long)v);
+    } else u = (unsigned int)v;
+    if (u == 0) {
+        a_putc(o, '0');
+        return;
+    }
+    while (u > 0) {
+        tmp[n++] = (char)('0' + (u % 10u));
+        u /= 10u;
+    }
+    while (n > 0) {
+        n--;
+        a_putc(o, tmp[n]);
+    }
 }
 static void a_hex(char **o, unsigned int v, int digits) {
     static const char hx[] = "0123456789abcdef";
@@ -26,17 +42,16 @@ static const char *reg_names[32] = {
     "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3",
     "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7",
     "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7",
-    "$t8", "$t9", "$k0", "$k1", "$gp", "$sp", "$fp", "$ra"
-};
+    "$t8", "$t9", "$k0", "$k1", "$gp", "$sp", "$fp", "$ra"};
 
-const char* get_register_name(int reg) {
+const char *get_register_name(int reg) {
     if (reg >= 0 && reg < 32) {
         return reg_names[reg];
     }
     return "???";
 }
 
-const char* get_opcode_name(unsigned int opcode, unsigned int funct) {
+const char *get_opcode_name(unsigned int opcode, unsigned int funct) {
     if (opcode == OP_RTYPE) {
         switch (funct) {
             case FUNCT_ADD: return "add";
@@ -111,29 +126,41 @@ void disassemble_instruction(unsigned int word, char *output, int max_len) {
     switch (instr.type) {
         case INSTR_TYPE_R:
             if (instr.funct == FUNCT_JR) {
-                a_puts(&o, name); a_putc(&o, ' ');
+                a_puts(&o, name);
+                a_putc(&o, ' ');
                 a_puts(&o, get_register_name(instr.rs));
             } else if (instr.funct == FUNCT_JALR) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rd));
+                a_puts(&o, ", ");
                 a_puts(&o, get_register_name(instr.rs));
             } else if (instr.funct == FUNCT_SLL || instr.funct == FUNCT_SRL || instr.funct == FUNCT_SRA) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd)); a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rd));
+                a_puts(&o, ", ");
+                a_puts(&o, get_register_name(instr.rt));
+                a_puts(&o, ", ");
                 a_dec(&o, (int)instr.shamt);
             } else if (instr.funct == FUNCT_MFHI || instr.funct == FUNCT_MFLO) {
-                a_puts(&o, name); a_putc(&o, ' ');
+                a_puts(&o, name);
+                a_putc(&o, ' ');
                 a_puts(&o, get_register_name(instr.rd));
             } else if (instr.funct == FUNCT_MULT || instr.funct == FUNCT_MULTU ||
                        instr.funct == FUNCT_DIV || instr.funct == FUNCT_DIVU) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rs)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rs));
+                a_puts(&o, ", ");
                 a_puts(&o, get_register_name(instr.rt));
             } else {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd)); a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rs)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rd));
+                a_puts(&o, ", ");
+                a_puts(&o, get_register_name(instr.rs));
+                a_puts(&o, ", ");
                 a_puts(&o, get_register_name(instr.rt));
             }
             break;
@@ -141,29 +168,42 @@ void disassemble_instruction(unsigned int word, char *output, int max_len) {
         case INSTR_TYPE_I:
             if (instr.opcode == OP_LW || instr.opcode == OP_SW ||
                 instr.opcode == OP_LB || instr.opcode == OP_SB) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt)); a_puts(&o, ", ");
-                a_dec(&o, sign_extend_16(instr.immediate)); a_putc(&o, '(');
-                a_puts(&o, get_register_name(instr.rs)); a_putc(&o, ')');
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rt));
+                a_puts(&o, ", ");
+                a_dec(&o, sign_extend_16(instr.immediate));
+                a_putc(&o, '(');
+                a_puts(&o, get_register_name(instr.rs));
+                a_putc(&o, ')');
             } else if (instr.opcode == OP_BEQ || instr.opcode == OP_BNE) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rs)); a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rs));
+                a_puts(&o, ", ");
+                a_puts(&o, get_register_name(instr.rt));
+                a_puts(&o, ", ");
                 a_dec(&o, sign_extend_16(instr.immediate));
             } else if (instr.opcode == OP_LUI) {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt)); a_puts(&o, ", 0x");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rt));
+                a_puts(&o, ", 0x");
                 a_hex(&o, instr.immediate, 4);
             } else {
-                a_puts(&o, name); a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt)); a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rs)); a_puts(&o, ", ");
+                a_puts(&o, name);
+                a_putc(&o, ' ');
+                a_puts(&o, get_register_name(instr.rt));
+                a_puts(&o, ", ");
+                a_puts(&o, get_register_name(instr.rs));
+                a_puts(&o, ", ");
                 a_dec(&o, sign_extend_16(instr.immediate));
             }
             break;
 
         case INSTR_TYPE_J:
-            a_puts(&o, name); a_puts(&o, " 0x");
+            a_puts(&o, name);
+            a_puts(&o, " 0x");
             a_hex(&o, instr.address << 2, 8);
             break;
 

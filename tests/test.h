@@ -28,30 +28,30 @@ static inline void test_suite(const char *name) {
     printf("== %s ==\n", name);
 }
 
-#define CHECK(cond, ...)                                                \
-    do {                                                               \
-        if (cond) {                                                    \
-            g_pass++;                                                  \
-        } else {                                                       \
-            g_fail++;                                                  \
-            printf("  FAIL [%s:%d] ", __FILE__, __LINE__);            \
-            printf(__VA_ARGS__);                                       \
-            printf("\n");                                              \
-        }                                                              \
+#define CHECK(cond, ...) \
+    do { \
+        if (cond) { \
+            g_pass++; \
+        } else { \
+            g_fail++; \
+            printf("  FAIL [%s:%d] ", __FILE__, __LINE__); \
+            printf(__VA_ARGS__); \
+            printf("\n"); \
+        } \
     } while (0)
 
-#define CHECK_EQ_U32(got, exp, label)                                  \
-    do {                                                               \
-        uint32_t _g = (uint32_t)(got);                                 \
-        uint32_t _e = (uint32_t)(exp);                                 \
+#define CHECK_EQ_U32(got, exp, label) \
+    do { \
+        uint32_t _g = (uint32_t)(got); \
+        uint32_t _e = (uint32_t)(exp); \
         CHECK(_g == _e, "%s: got 0x%08x expected 0x%08x", label, _g, _e); \
     } while (0)
 
-#define CHECK_EQ_BIT(got, exp, label)                                  \
-    do {                                                               \
-        int _g = (int)(got);                                           \
-        int _e = (int)(exp);                                           \
-        CHECK(_g == _e, "%s: got %d expected %d", label, _g, _e);      \
+#define CHECK_EQ_BIT(got, exp, label) \
+    do { \
+        int _g = (int)(got); \
+        int _e = (int)(exp); \
+        CHECK(_g == _e, "%s: got %d expected %d", label, _g, _e); \
     } while (0)
 
 static inline int test_report(void) {

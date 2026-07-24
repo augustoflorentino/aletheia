@@ -51,7 +51,10 @@ static void print_number(uint32_t v, char *out) {
 static void ref_decimal(uint32_t v, char *out) {
     char tmp[16];
     int n = 0;
-    do { tmp[n++] = (char)('0' + (v % 10u)); v /= 10u; } while (v != 0);
+    do {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    } while (v != 0);
     int i;
     for (i = 0; i < n; i++) out[i] = tmp[n - 1 - i];
     out[n] = '\0';

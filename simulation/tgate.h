@@ -12,9 +12,15 @@ typedef struct {
 static sim_time_t g_gate_delay = 1;
 static sim_time_t g_critical_path = 0;
 
-static inline void tgate_set_delay(sim_time_t d) { g_gate_delay = d; }
-static inline void tgate_reset_critical(void) { g_critical_path = 0; }
-static inline sim_time_t tgate_critical(void) { return g_critical_path; }
+static inline void tgate_set_delay(sim_time_t d) {
+    g_gate_delay = d;
+}
+static inline void tgate_reset_critical(void) {
+    g_critical_path = 0;
+}
+static inline sim_time_t tgate_critical(void) {
+    return g_critical_path;
+}
 
 static inline sim_time_t tmax(sim_time_t a, sim_time_t b) {
     return a > b ? a : b;

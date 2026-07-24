@@ -90,13 +90,13 @@ static void test_dynamic_ack(void) {
     interrupt_controller_t ic;
     intc_reset(&ic);
 
-    bit mask[8] = {1,1,1,1,1,1,1,1};
+    bit mask[8] = {1, 1, 1, 1, 1, 1, 1, 1};
     intc_set_mask(&ic, mask);
     intc_set_global_enable(&ic, 1);
     intc_clock_fall(&ic);
     intc_clock_rise(&ic);
 
-    bit irq[8] = {0,0,0,0,0,1,0,0};
+    bit irq[8] = {0, 0, 0, 0, 0, 1, 0, 0};
     intc_set_irq(&ic, irq);
     intc_clock_fall(&ic);
     intc_clock_rise(&ic);
@@ -107,7 +107,7 @@ static void test_dynamic_ack(void) {
     intc_get_vector(&ic, vec);
     CHECK_EQ_U32(from_bits_n(vec, 3), 5u, "vector points to line 5");
 
-    bit no_irq[8] = {0,0,0,0,0,0,0,0};
+    bit no_irq[8] = {0, 0, 0, 0, 0, 0, 0, 0};
     bit ack_num[3];
     to_bits_n(5u, ack_num, 3);
     intc_set_irq(&ic, no_irq);
@@ -132,29 +132,45 @@ static void test_exception_cause(void) {
 
     exception_handler_t eh;
 
-    exc_init(&eh); exc_reset(&eh); exc_set_reset(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_reset(&eh, 1);
     assert_handler(&eh, EXC_RESET);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_undefined(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_undefined(&eh, 1);
     assert_handler(&eh, EXC_UNDEFINED);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_syscall(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_syscall(&eh, 1);
     assert_handler(&eh, EXC_SYSCALL);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_break(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_break(&eh, 1);
     assert_handler(&eh, EXC_BREAK);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_overflow(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_overflow(&eh, 1);
     assert_handler(&eh, EXC_OVERFLOW);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_addr_error(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_addr_error(&eh, 1);
     assert_handler(&eh, EXC_ADDR_ERROR);
 
-    exc_init(&eh); exc_reset(&eh); exc_set_bus_error(&eh, 1);
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_bus_error(&eh, 1);
     assert_handler(&eh, EXC_BUS_ERROR);
 
-    bit vec0[3] = {0,0,0};
-    exc_init(&eh); exc_reset(&eh); exc_set_interrupt(&eh, 1, vec0);
+    bit vec0[3] = {0, 0, 0};
+    exc_init(&eh);
+    exc_reset(&eh);
+    exc_set_interrupt(&eh, 1, vec0);
     assert_handler(&eh, EXC_INTERRUPT);
 }
 
