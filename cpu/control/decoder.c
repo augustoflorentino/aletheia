@@ -36,6 +36,13 @@ void decoder_init(instruction_decoder_t *dec) {
     dec->jal = 0;
     dec->jr = 0;
     dec->reti = 0;
+    dec->imm_zero_ext = 0;
+    dec->shift_rt = 0;
+    dec->shift_shamt = 0;
+    dec->lui = 0;
+    dec->branch_ne = 0;
+    dec->link = 0;
+    dec->undefined = 0;
 }
 
 void decoder_reset(instruction_decoder_t *dec) {
@@ -126,87 +133,98 @@ void decoder_set_instruction(instruction_decoder_t *dec, bit *instruction) {
     dec->addr[25] = instruction[25];
 }
 
+static bit match6(bit *f, bit v5, bit v4, bit v3, bit v2, bit v1, bit v0) {
+    return AND(AND(XNOR(f[5], v5), XNOR(f[4], v4)),
+               AND(AND(XNOR(f[3], v3), XNOR(f[2], v2)),
+                   AND(XNOR(f[1], v1), XNOR(f[0], v0))));
+}
+
 void decoder_propagate(instruction_decoder_t *dec) {
-    bit op_all_zero = AND(NOT(dec->opcode[0]), AND(NOT(dec->opcode[1]),
-                      AND(NOT(dec->opcode[2]), AND(NOT(dec->opcode[3]),
-                      AND(NOT(dec->opcode[4]), NOT(dec->opcode[5]))))));
+    bit *op = dec->opcode;
+    bit *fn = dec->funct;
 
-    bit is_r_type = op_all_zero;
+    bit is_r = match6(op, 0, 0, 0, 0, 0, 0);
+    bit is_addi = match6(op, 0, 0, 1, 0, 0, 0);
+    bit is_slti = match6(op, 0, 0, 1, 0, 1, 0);
+    bit is_sltiu = match6(op, 0, 0, 1, 0, 1, 1);
+    bit is_andi = match6(op, 0, 0, 1, 1, 0, 0);
+    bit is_ori = match6(op, 0, 0, 1, 1, 0, 1);
+    bit is_xori = match6(op, 0, 0, 1, 1, 1, 0);
+    bit is_lui = match6(op, 0, 0, 1, 1, 1, 1);
+    bit is_lw = match6(op, 1, 0, 0, 0, 1, 1);
+    bit is_sw = match6(op, 1, 0, 1, 0, 1, 1);
+    bit is_beq = match6(op, 0, 0, 0, 1, 0, 0);
+    bit is_bne = match6(op, 0, 0, 0, 1, 0, 1);
+    bit is_j = match6(op, 0, 0, 0, 0, 1, 0);
+    bit is_jal = match6(op, 0, 0, 0, 0, 1, 1);
+    bit is_reti = match6(op, 0, 1, 0, 0, 0, 0);
+    bit is_halt = match6(op, 1, 1, 1, 1, 1, 1);
 
-    bit is_lw = AND(AND(dec->opcode[5], NOT(dec->opcode[4])),
-                AND(NOT(dec->opcode[3]), AND(NOT(dec->opcode[2]),
-                AND(dec->opcode[1], dec->opcode[0]))));
+    bit f_add = AND(is_r, match6(fn, 1, 0, 0, 0, 0, 0));
+    bit f_sub = AND(is_r, match6(fn, 1, 0, 0, 0, 1, 0));
+    bit f_and = AND(is_r, match6(fn, 1, 0, 0, 1, 0, 0));
+    bit f_or = AND(is_r, match6(fn, 1, 0, 0, 1, 0, 1));
+    bit f_xor = AND(is_r, match6(fn, 1, 0, 0, 1, 1, 0));
+    bit f_nor = AND(is_r, match6(fn, 1, 0, 0, 1, 1, 1));
+    bit f_slt = AND(is_r, match6(fn, 1, 0, 1, 0, 1, 0));
+    bit f_sltu = AND(is_r, match6(fn, 1, 0, 1, 0, 1, 1));
+    bit f_sll = AND(is_r, match6(fn, 0, 0, 0, 0, 0, 0));
+    bit f_srl = AND(is_r, match6(fn, 0, 0, 0, 0, 1, 0));
+    bit f_sra = AND(is_r, match6(fn, 0, 0, 0, 0, 1, 1));
+    bit f_sllv = AND(is_r, match6(fn, 0, 0, 0, 1, 0, 0));
+    bit f_srlv = AND(is_r, match6(fn, 0, 0, 0, 1, 1, 0));
+    bit f_srav = AND(is_r, match6(fn, 0, 0, 0, 1, 1, 1));
+    bit f_jr = AND(is_r, match6(fn, 0, 0, 1, 0, 0, 0));
+    bit f_jalr = AND(is_r, match6(fn, 0, 0, 1, 0, 0, 1));
 
-    bit is_sw = AND(AND(dec->opcode[5], NOT(dec->opcode[4])),
-                AND(dec->opcode[3], AND(NOT(dec->opcode[2]),
-                AND(dec->opcode[1], dec->opcode[0]))));
+    bit shift_imm = OR(f_sll, OR(f_srl, f_sra));
+    bit shift_var = OR(f_sllv, OR(f_srlv, f_srav));
+    bit r_alu = OR(OR(OR(f_add, f_sub), OR(f_and, f_or)),
+                   OR(OR(f_xor, f_nor), OR(f_slt, f_sltu)));
+    bit r_valid = OR(OR(r_alu, shift_imm), OR(shift_var, OR(f_jr, f_jalr)));
+    bit i_signed = OR(is_addi, OR(is_slti, is_sltiu));
+    bit i_logic = OR(is_andi, OR(is_ori, is_xori));
+    bit mem = OR(is_lw, is_sw);
+    bit branch = OR(is_beq, is_bne);
 
-    bit is_beq = AND(NOT(dec->opcode[5]), AND(NOT(dec->opcode[4]),
-                 AND(NOT(dec->opcode[3]), AND(dec->opcode[2],
-                 AND(NOT(dec->opcode[1]), NOT(dec->opcode[0]))))));
+    bit op_sub = OR(f_sub, branch);
+    bit op_and = OR(f_and, is_andi);
+    bit op_or = OR(f_or, is_ori);
+    bit op_xor = OR(f_xor, is_xori);
+    bit op_sll = OR(OR(f_sll, f_sllv), is_lui);
+    bit op_srl = OR(f_srl, f_srlv);
+    bit op_sra = OR(f_sra, f_srav);
+    bit op_slt = OR(f_slt, is_slti);
+    bit op_sltu = OR(f_sltu, is_sltiu);
 
-    bit is_j = AND(NOT(dec->opcode[5]), AND(NOT(dec->opcode[4]),
-               AND(NOT(dec->opcode[3]), AND(NOT(dec->opcode[2]),
-               AND(dec->opcode[1], NOT(dec->opcode[0]))))));
+    dec->alu_op[0] = OR(OR(op_sub, op_or), OR(OR(op_srl, op_slt), f_nor));
+    dec->alu_op[1] = OR(OR(OR(op_and, op_or), OR(op_sll, op_srl)), OR(op_sltu, f_nor));
+    dec->alu_op[2] = OR(op_xor, OR(op_sll, op_srl));
+    dec->alu_op[3] = OR(OR(op_sra, op_slt), OR(op_sltu, f_nor));
 
-    bit is_addi = AND(NOT(dec->opcode[5]), AND(NOT(dec->opcode[4]),
-                  AND(dec->opcode[3], AND(NOT(dec->opcode[2]),
-                  AND(NOT(dec->opcode[1]), NOT(dec->opcode[0]))))));
-
-    bit is_jal = AND(NOT(dec->opcode[5]), AND(NOT(dec->opcode[4]),
-                 AND(NOT(dec->opcode[3]), AND(NOT(dec->opcode[2]),
-                 AND(dec->opcode[1], dec->opcode[0])))));
-
-    bit funct_jr = AND(NOT(dec->funct[5]), AND(NOT(dec->funct[4]),
-                   AND(dec->funct[3], AND(NOT(dec->funct[2]),
-                   AND(NOT(dec->funct[1]), NOT(dec->funct[0]))))));
-    bit is_jr = AND(is_r_type, funct_jr);
-
-    bit is_reti = AND(NOT(dec->opcode[5]), AND(dec->opcode[4],
-                  AND(NOT(dec->opcode[3]), AND(NOT(dec->opcode[2]),
-                  AND(NOT(dec->opcode[1]), NOT(dec->opcode[0]))))));
-
-    dec->jal = is_jal;
-    dec->jr = is_jr;
-    dec->reti = is_reti;
-
-    dec->reg_dst = is_r_type;
-    dec->alu_src = OR(is_lw, OR(is_sw, is_addi));
+    dec->reg_dst = is_r;
+    dec->alu_src = OR(OR(i_signed, i_logic), mem);
+    dec->use_imm = dec->alu_src;
+    dec->imm_zero_ext = OR(i_logic, is_lui);
+    dec->shift_rt = OR(shift_imm, shift_var);
+    dec->shift_shamt = shift_imm;
+    dec->lui = is_lui;
     dec->mem_to_reg = is_lw;
-
-    dec->reg_write = OR(AND(OR(is_r_type, OR(is_lw, is_addi)), NOT(is_jr)), is_jal);
     dec->mem_read = is_lw;
     dec->mem_write = is_sw;
-    dec->branch = is_beq;
+    dec->branch = branch;
+    dec->branch_ne = is_bne;
     dec->jump = OR(is_j, is_jal);
-    dec->use_imm = OR(is_lw, OR(is_sw, is_addi));
+    dec->jal = is_jal;
+    dec->jr = OR(f_jr, f_jalr);
+    dec->link = OR(is_jal, f_jalr);
+    dec->reti = is_reti;
+    dec->reg_write = OR(OR(AND(r_valid, NOT(f_jr)), OR(i_signed, i_logic)),
+                        OR(OR(is_lui, is_lw), is_jal));
 
-    bit funct_add = AND(dec->funct[5], AND(NOT(dec->funct[4]),
-                    AND(NOT(dec->funct[3]), AND(NOT(dec->funct[2]),
-                    AND(NOT(dec->funct[1]), NOT(dec->funct[0]))))));
-
-    bit funct_sub = AND(dec->funct[5], AND(NOT(dec->funct[4]),
-                    AND(NOT(dec->funct[3]), AND(NOT(dec->funct[2]),
-                    AND(dec->funct[1], NOT(dec->funct[0]))))));
-
-    bit funct_and = AND(dec->funct[5], AND(NOT(dec->funct[4]),
-                    AND(NOT(dec->funct[3]), AND(dec->funct[2],
-                    AND(NOT(dec->funct[1]), NOT(dec->funct[0]))))));
-
-    bit funct_or = AND(dec->funct[5], AND(NOT(dec->funct[4]),
-                   AND(NOT(dec->funct[3]), AND(dec->funct[2],
-                   AND(NOT(dec->funct[1]), dec->funct[0])))));
-
-    bit funct_slt = AND(dec->funct[5], AND(NOT(dec->funct[4]),
-                    AND(dec->funct[3], AND(NOT(dec->funct[2]),
-                    AND(dec->funct[1], NOT(dec->funct[0]))))));
-
-    dec->alu_op[0] = mux2(0, OR(funct_sub, funct_slt), is_r_type);
-    dec->alu_op[1] = mux2(0, OR(funct_and, funct_or), is_r_type);
-    dec->alu_op[2] = mux2(0, funct_or, is_r_type);
-    dec->alu_op[3] = mux2(0, funct_slt, is_r_type);
-
-    (void)funct_add;
+    bit known = OR(OR(OR(r_valid, i_signed), OR(i_logic, is_lui)),
+                   OR(OR(mem, branch), OR(OR(is_j, is_jal), OR(is_reti, is_halt))));
+    dec->undefined = NOT(known);
 }
 
 bit decoder_get_reg_dst(instruction_decoder_t *dec) {

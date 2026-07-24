@@ -26,6 +26,13 @@ typedef struct {
     bit jal;
     bit jr;
     bit reti;
+    bit imm_zero_ext;
+    bit shift_rt;
+    bit shift_shamt;
+    bit lui;
+    bit branch_ne;
+    bit link;
+    bit undefined;
 } instruction_decoder_t;
 
 void decoder_init(instruction_decoder_t *dec);
