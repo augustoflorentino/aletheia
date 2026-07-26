@@ -1,5 +1,6 @@
 #include "shifter.h"
 #include "../../core/mux/mux.h"
+#include "logic_unit.h"
 
 void shl_32_1(bit *a, bit *out) {
     out[0] = 0;
@@ -151,4 +152,13 @@ void shr_32(bit *a, bit *n, bit *out) {
 
     shr_32_16(t3, s16);
     mux2_32(t3, s16, n[4], out);
+}
+
+void sra_32(bit *a, bit *n, bit *out) {
+    bit inv[32], shifted[32], shifted_inv[32], filled[32];
+    not_word_32(a, inv);
+    shr_32(a, n, shifted);
+    shr_32(inv, n, shifted_inv);
+    not_word_32(shifted_inv, filled);
+    mux2_32(shifted, filled, a[31], out);
 }

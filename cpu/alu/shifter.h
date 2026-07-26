@@ -17,5 +17,6 @@ void shr_32_16(bit *a, bit *out);
 
 void shl_32(bit *a, bit *n, bit *out);
 void shr_32(bit *a, bit *n, bit *out);
+void sra_32(bit *a, bit *n, bit *out);
 
 #endif

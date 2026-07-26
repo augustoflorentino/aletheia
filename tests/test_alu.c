@@ -39,6 +39,10 @@ static void run_case(int op, uint32_t a, uint32_t b) {
         CHECK_EQ_BIT(flags.carry, ref_add_carry(a, b), "carry flag");
         CHECK_EQ_BIT(flags.overflow, ref_add_overflow(a, b), "overflow flag");
     }
+    if (op == ALU_OP_SUB) {
+        uint32_t d = a - b;
+        CHECK_EQ_BIT(flags.overflow, (((a ^ b) & (a ^ d)) >> 31) & 1u, "sub overflow flag");
+    }
 }
 
 static void test_alu_directed(void) {
