@@ -26,7 +26,10 @@ void uart_tx_init(uart_tx_t *tx) {
     dff_reset(&tx->count[1]);
     dff_reset(&tx->count[2]);
     dff_reset(&tx->count[3]);
+    dff_reset(&tx->overrun);
     tx->load = 0;
+    tx->clear_status = 0;
+    tx->overrun_out = 0;
     tx->data_in[0] = 0;
     tx->data_in[1] = 0;
     tx->data_in[2] = 0;
@@ -54,8 +57,14 @@ void uart_tx_set_load(uart_tx_t *tx, bit load) {
     tx->load = load;
 }
 
+void uart_tx_set_clear_status(uart_tx_t *tx, bit clear) {
+    tx->clear_status = clear;
+}
+
 void uart_tx_clock_fall(uart_tx_t *tx) {
     bit busy = count_or(tx->count);
+    bit load = AND(tx->load, NOT(busy));
+    tx->overrun.d = OR(AND(tx->overrun.q, NOT(tx->clear_status)), AND(tx->load, busy));
     bit cnt[4] = {tx->count[0].q, tx->count[1].q, tx->count[2].q, tx->count[3].q};
     bit ones[4] = {1, 1, 1, 1};
     bit dec[4], cout;
@@ -73,29 +82,29 @@ void uart_tx_clock_fall(uart_tx_t *tx) {
     frame[8] = tx->data_in[7];
     frame[9] = 1;
     bit bv0 = mux2(tx->shift[0].q, tx->shift[1].q, busy);
-    tx->shift[0].d = mux2(bv0, frame[0], tx->load);
+    tx->shift[0].d = mux2(bv0, frame[0], load);
     bit bv1 = mux2(tx->shift[1].q, tx->shift[2].q, busy);
-    tx->shift[1].d = mux2(bv1, frame[1], tx->load);
+    tx->shift[1].d = mux2(bv1, frame[1], load);
     bit bv2 = mux2(tx->shift[2].q, tx->shift[3].q, busy);
-    tx->shift[2].d = mux2(bv2, frame[2], tx->load);
+    tx->shift[2].d = mux2(bv2, frame[2], load);
     bit bv3 = mux2(tx->shift[3].q, tx->shift[4].q, busy);
-    tx->shift[3].d = mux2(bv3, frame[3], tx->load);
+    tx->shift[3].d = mux2(bv3, frame[3], load);
     bit bv4 = mux2(tx->shift[4].q, tx->shift[5].q, busy);
-    tx->shift[4].d = mux2(bv4, frame[4], tx->load);
+    tx->shift[4].d = mux2(bv4, frame[4], load);
     bit bv5 = mux2(tx->shift[5].q, tx->shift[6].q, busy);
-    tx->shift[5].d = mux2(bv5, frame[5], tx->load);
+    tx->shift[5].d = mux2(bv5, frame[5], load);
     bit bv6 = mux2(tx->shift[6].q, tx->shift[7].q, busy);
-    tx->shift[6].d = mux2(bv6, frame[6], tx->load);
+    tx->shift[6].d = mux2(bv6, frame[6], load);
     bit bv7 = mux2(tx->shift[7].q, tx->shift[8].q, busy);
-    tx->shift[7].d = mux2(bv7, frame[7], tx->load);
+    tx->shift[7].d = mux2(bv7, frame[7], load);
     bit bv8 = mux2(tx->shift[8].q, tx->shift[9].q, busy);
-    tx->shift[8].d = mux2(bv8, frame[8], tx->load);
+    tx->shift[8].d = mux2(bv8, frame[8], load);
     bit bv9 = mux2(tx->shift[9].q, 1, busy);
-    tx->shift[9].d = mux2(bv9, frame[9], tx->load);
-    tx->count[0].d = mux2(mux2(0, dec[0], busy), ten[0], tx->load);
-    tx->count[1].d = mux2(mux2(0, dec[1], busy), ten[1], tx->load);
-    tx->count[2].d = mux2(mux2(0, dec[2], busy), ten[2], tx->load);
-    tx->count[3].d = mux2(mux2(0, dec[3], busy), ten[3], tx->load);
+    tx->shift[9].d = mux2(bv9, frame[9], load);
+    tx->count[0].d = mux2(mux2(0, dec[0], busy), ten[0], load);
+    tx->count[1].d = mux2(mux2(0, dec[1], busy), ten[1], load);
+    tx->count[2].d = mux2(mux2(0, dec[2], busy), ten[2], load);
+    tx->count[3].d = mux2(mux2(0, dec[3], busy), ten[3], load);
     dff_clock_fall(&tx->shift[0]);
     dff_clock_fall(&tx->shift[1]);
     dff_clock_fall(&tx->shift[2]);
@@ -110,6 +119,7 @@ void uart_tx_clock_fall(uart_tx_t *tx) {
     dff_clock_fall(&tx->count[1]);
     dff_clock_fall(&tx->count[2]);
     dff_clock_fall(&tx->count[3]);
+    dff_clock_fall(&tx->overrun);
 }
 
 void uart_tx_clock_rise(uart_tx_t *tx) {
@@ -127,12 +137,14 @@ void uart_tx_clock_rise(uart_tx_t *tx) {
     dff_clock_rise(&tx->count[1]);
     dff_clock_rise(&tx->count[2]);
     dff_clock_rise(&tx->count[3]);
+    dff_clock_rise(&tx->overrun);
 }
 
 void uart_tx_propagate(uart_tx_t *tx) {
     bit busy = count_or(tx->count);
     tx->serial_out = mux2(1, tx->shift[0].q, busy);
     tx->ready = NOT(busy);
+    tx->overrun_out = tx->overrun.q;
 }
 
 void uart_rx_init(uart_rx_t *rx) {
@@ -149,6 +161,30 @@ void uart_rx_init(uart_rx_t *rx) {
     dff_reset(&rx->count[2]);
     dff_reset(&rx->count[3]);
     dff_reset(&rx->valid);
+    dff_reset(&rx->holding[0]);
+    dff_reset(&rx->holding[1]);
+    dff_reset(&rx->holding[2]);
+    dff_reset(&rx->holding[3]);
+    dff_reset(&rx->holding[4]);
+    dff_reset(&rx->holding[5]);
+    dff_reset(&rx->holding[6]);
+    dff_reset(&rx->holding[7]);
+    dff_reset(&rx->avail);
+    dff_reset(&rx->overrun);
+    dff_reset(&rx->framing);
+    rx->read_data = 0;
+    rx->clear_status = 0;
+    rx->holding_out[0] = 0;
+    rx->holding_out[1] = 0;
+    rx->holding_out[2] = 0;
+    rx->holding_out[3] = 0;
+    rx->holding_out[4] = 0;
+    rx->holding_out[5] = 0;
+    rx->holding_out[6] = 0;
+    rx->holding_out[7] = 0;
+    rx->avail_out = 0;
+    rx->overrun_out = 0;
+    rx->framing_out = 0;
     rx->serial_in = 1;
     rx->data_out[0] = 0;
     rx->data_out[1] = 0;
@@ -163,6 +199,11 @@ void uart_rx_init(uart_rx_t *rx) {
 
 void uart_rx_set_serial(uart_rx_t *rx, bit s) {
     rx->serial_in = s;
+}
+
+void uart_rx_set_read(uart_rx_t *rx, bit read_data, bit clear_status) {
+    rx->read_data = read_data;
+    rx->clear_status = clear_status;
 }
 
 void uart_rx_clock_fall(uart_rx_t *rx) {
@@ -188,7 +229,23 @@ void uart_rx_clock_fall(uart_rx_t *rx) {
     rx->shift[5].d = mux2(rx->shift[5].q, rx->shift[6].q, shift_enable);
     rx->shift[6].d = mux2(rx->shift[6].q, rx->shift[7].q, shift_enable);
     rx->shift[7].d = mux2(rx->shift[7].q, rx->serial_in, shift_enable);
-    rx->valid.d = AND(busy, eq1);
+    bit frame_end = AND(busy, eq1);
+    bit good = AND(frame_end, rx->serial_in);
+    bit bad = AND(frame_end, NOT(rx->serial_in));
+    rx->valid.d = good;
+    bit deliver = rx->valid.q;
+    rx->holding[0].d = mux2(rx->holding[0].q, rx->shift[0].q, deliver);
+    rx->holding[1].d = mux2(rx->holding[1].q, rx->shift[1].q, deliver);
+    rx->holding[2].d = mux2(rx->holding[2].q, rx->shift[2].q, deliver);
+    rx->holding[3].d = mux2(rx->holding[3].q, rx->shift[3].q, deliver);
+    rx->holding[4].d = mux2(rx->holding[4].q, rx->shift[4].q, deliver);
+    rx->holding[5].d = mux2(rx->holding[5].q, rx->shift[5].q, deliver);
+    rx->holding[6].d = mux2(rx->holding[6].q, rx->shift[6].q, deliver);
+    rx->holding[7].d = mux2(rx->holding[7].q, rx->shift[7].q, deliver);
+    bit keep = NOT(rx->clear_status);
+    rx->overrun.d = OR(AND(rx->overrun.q, keep), AND(deliver, AND(rx->avail.q, NOT(rx->read_data))));
+    rx->framing.d = OR(AND(rx->framing.q, keep), bad);
+    rx->avail.d = OR(deliver, AND(rx->avail.q, NOT(rx->read_data)));
     dff_clock_fall(&rx->shift[0]);
     dff_clock_fall(&rx->shift[1]);
     dff_clock_fall(&rx->shift[2]);
@@ -202,6 +259,17 @@ void uart_rx_clock_fall(uart_rx_t *rx) {
     dff_clock_fall(&rx->count[2]);
     dff_clock_fall(&rx->count[3]);
     dff_clock_fall(&rx->valid);
+    dff_clock_fall(&rx->holding[0]);
+    dff_clock_fall(&rx->holding[1]);
+    dff_clock_fall(&rx->holding[2]);
+    dff_clock_fall(&rx->holding[3]);
+    dff_clock_fall(&rx->holding[4]);
+    dff_clock_fall(&rx->holding[5]);
+    dff_clock_fall(&rx->holding[6]);
+    dff_clock_fall(&rx->holding[7]);
+    dff_clock_fall(&rx->avail);
+    dff_clock_fall(&rx->overrun);
+    dff_clock_fall(&rx->framing);
 }
 
 void uart_rx_clock_rise(uart_rx_t *rx) {
@@ -218,6 +286,17 @@ void uart_rx_clock_rise(uart_rx_t *rx) {
     dff_clock_rise(&rx->count[2]);
     dff_clock_rise(&rx->count[3]);
     dff_clock_rise(&rx->valid);
+    dff_clock_rise(&rx->holding[0]);
+    dff_clock_rise(&rx->holding[1]);
+    dff_clock_rise(&rx->holding[2]);
+    dff_clock_rise(&rx->holding[3]);
+    dff_clock_rise(&rx->holding[4]);
+    dff_clock_rise(&rx->holding[5]);
+    dff_clock_rise(&rx->holding[6]);
+    dff_clock_rise(&rx->holding[7]);
+    dff_clock_rise(&rx->avail);
+    dff_clock_rise(&rx->overrun);
+    dff_clock_rise(&rx->framing);
 }
 
 void uart_rx_propagate(uart_rx_t *rx) {
@@ -230,4 +309,15 @@ void uart_rx_propagate(uart_rx_t *rx) {
     rx->data_out[6] = rx->shift[6].q;
     rx->data_out[7] = rx->shift[7].q;
     rx->valid_out = rx->valid.q;
+    rx->holding_out[0] = rx->holding[0].q;
+    rx->holding_out[1] = rx->holding[1].q;
+    rx->holding_out[2] = rx->holding[2].q;
+    rx->holding_out[3] = rx->holding[3].q;
+    rx->holding_out[4] = rx->holding[4].q;
+    rx->holding_out[5] = rx->holding[5].q;
+    rx->holding_out[6] = rx->holding[6].q;
+    rx->holding_out[7] = rx->holding[7].q;
+    rx->avail_out = rx->avail.q;
+    rx->overrun_out = rx->overrun.q;
+    rx->framing_out = rx->framing.q;
 }
