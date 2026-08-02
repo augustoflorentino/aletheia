@@ -15,16 +15,6 @@ void gpio_init(gpio_t *gpio) {
     dff_reset(&gpio->direction[4]); dff_reset(&gpio->direction[5]);
     dff_reset(&gpio->direction[6]); dff_reset(&gpio->direction[7]);
 
-    dff_reset(&gpio->pull_enable[0]); dff_reset(&gpio->pull_enable[1]);
-    dff_reset(&gpio->pull_enable[2]); dff_reset(&gpio->pull_enable[3]);
-    dff_reset(&gpio->pull_enable[4]); dff_reset(&gpio->pull_enable[5]);
-    dff_reset(&gpio->pull_enable[6]); dff_reset(&gpio->pull_enable[7]);
-
-    dff_reset(&gpio->pull_up[0]); dff_reset(&gpio->pull_up[1]);
-    dff_reset(&gpio->pull_up[2]); dff_reset(&gpio->pull_up[3]);
-    dff_reset(&gpio->pull_up[4]); dff_reset(&gpio->pull_up[5]);
-    dff_reset(&gpio->pull_up[6]); dff_reset(&gpio->pull_up[7]);
-
     gpio->input[0] = 0; gpio->input[1] = 0;
     gpio->input[2] = 0; gpio->input[3] = 0;
     gpio->input[4] = 0; gpio->input[5] = 0;
@@ -108,15 +98,6 @@ void gpio_clock_rise(gpio_t *gpio) {
     dff_clock_rise(&gpio->direction[4]); dff_clock_rise(&gpio->direction[5]);
     dff_clock_rise(&gpio->direction[6]); dff_clock_rise(&gpio->direction[7]);
 
-    dff_clock_rise(&gpio->pull_enable[0]); dff_clock_rise(&gpio->pull_enable[1]);
-    dff_clock_rise(&gpio->pull_enable[2]); dff_clock_rise(&gpio->pull_enable[3]);
-    dff_clock_rise(&gpio->pull_enable[4]); dff_clock_rise(&gpio->pull_enable[5]);
-    dff_clock_rise(&gpio->pull_enable[6]); dff_clock_rise(&gpio->pull_enable[7]);
-
-    dff_clock_rise(&gpio->pull_up[0]); dff_clock_rise(&gpio->pull_up[1]);
-    dff_clock_rise(&gpio->pull_up[2]); dff_clock_rise(&gpio->pull_up[3]);
-    dff_clock_rise(&gpio->pull_up[4]); dff_clock_rise(&gpio->pull_up[5]);
-    dff_clock_rise(&gpio->pull_up[6]); dff_clock_rise(&gpio->pull_up[7]);
 }
 
 void gpio_clock_fall(gpio_t *gpio) {
@@ -127,11 +108,9 @@ void gpio_clock_fall(gpio_t *gpio) {
 
     bit sel_out = AND(na1, na0);
     bit sel_dir = AND(na1, gpio->addr[0]);
-    bit sel_pull = AND(gpio->addr[1], na0);
 
     bit wr_out = AND(wr, sel_out);
     bit wr_dir = AND(wr, sel_dir);
-    bit wr_pull = AND(wr, sel_pull);
 
     gpio->output[0].d = mux2(gpio->output[0].q, gpio->output_data[0], wr_out);
     gpio->output[1].d = mux2(gpio->output[1].q, gpio->output_data[1], wr_out);
@@ -151,15 +130,6 @@ void gpio_clock_fall(gpio_t *gpio) {
     gpio->direction[6].d = mux2(gpio->direction[6].q, gpio->dir_data[6], wr_dir);
     gpio->direction[7].d = mux2(gpio->direction[7].q, gpio->dir_data[7], wr_dir);
 
-    gpio->pull_enable[0].d = mux2(gpio->pull_enable[0].q, gpio->output_data[0], wr_pull);
-    gpio->pull_enable[1].d = mux2(gpio->pull_enable[1].q, gpio->output_data[1], wr_pull);
-    gpio->pull_enable[2].d = mux2(gpio->pull_enable[2].q, gpio->output_data[2], wr_pull);
-    gpio->pull_enable[3].d = mux2(gpio->pull_enable[3].q, gpio->output_data[3], wr_pull);
-    gpio->pull_enable[4].d = mux2(gpio->pull_enable[4].q, gpio->output_data[4], wr_pull);
-    gpio->pull_enable[5].d = mux2(gpio->pull_enable[5].q, gpio->output_data[5], wr_pull);
-    gpio->pull_enable[6].d = mux2(gpio->pull_enable[6].q, gpio->output_data[6], wr_pull);
-    gpio->pull_enable[7].d = mux2(gpio->pull_enable[7].q, gpio->output_data[7], wr_pull);
-
     dff_clock_fall(&gpio->output[0]); dff_clock_fall(&gpio->output[1]);
     dff_clock_fall(&gpio->output[2]); dff_clock_fall(&gpio->output[3]);
     dff_clock_fall(&gpio->output[4]); dff_clock_fall(&gpio->output[5]);
@@ -170,15 +140,6 @@ void gpio_clock_fall(gpio_t *gpio) {
     dff_clock_fall(&gpio->direction[4]); dff_clock_fall(&gpio->direction[5]);
     dff_clock_fall(&gpio->direction[6]); dff_clock_fall(&gpio->direction[7]);
 
-    dff_clock_fall(&gpio->pull_enable[0]); dff_clock_fall(&gpio->pull_enable[1]);
-    dff_clock_fall(&gpio->pull_enable[2]); dff_clock_fall(&gpio->pull_enable[3]);
-    dff_clock_fall(&gpio->pull_enable[4]); dff_clock_fall(&gpio->pull_enable[5]);
-    dff_clock_fall(&gpio->pull_enable[6]); dff_clock_fall(&gpio->pull_enable[7]);
-
-    dff_clock_fall(&gpio->pull_up[0]); dff_clock_fall(&gpio->pull_up[1]);
-    dff_clock_fall(&gpio->pull_up[2]); dff_clock_fall(&gpio->pull_up[3]);
-    dff_clock_fall(&gpio->pull_up[4]); dff_clock_fall(&gpio->pull_up[5]);
-    dff_clock_fall(&gpio->pull_up[6]); dff_clock_fall(&gpio->pull_up[7]);
 }
 
 void gpio_propagate(gpio_t *gpio) {
@@ -207,10 +168,16 @@ void gpio_propagate(gpio_t *gpio) {
 }
 
 void gpio_read_data(gpio_t *gpio, bit *out) {
-    out[0] = gpio->pin_read[0]; out[1] = gpio->pin_read[1];
-    out[2] = gpio->pin_read[2]; out[3] = gpio->pin_read[3];
-    out[4] = gpio->pin_read[4]; out[5] = gpio->pin_read[5];
-    out[6] = gpio->pin_read[6]; out[7] = gpio->pin_read[7];
+    bit a0 = gpio->addr[0];
+    bit a1 = gpio->addr[1];
+    out[0] = mux2(mux2(gpio->output[0].q, gpio->direction[0].q, a0), AND(gpio->pin_read[0], NOT(a0)), a1);
+    out[1] = mux2(mux2(gpio->output[1].q, gpio->direction[1].q, a0), AND(gpio->pin_read[1], NOT(a0)), a1);
+    out[2] = mux2(mux2(gpio->output[2].q, gpio->direction[2].q, a0), AND(gpio->pin_read[2], NOT(a0)), a1);
+    out[3] = mux2(mux2(gpio->output[3].q, gpio->direction[3].q, a0), AND(gpio->pin_read[3], NOT(a0)), a1);
+    out[4] = mux2(mux2(gpio->output[4].q, gpio->direction[4].q, a0), AND(gpio->pin_read[4], NOT(a0)), a1);
+    out[5] = mux2(mux2(gpio->output[5].q, gpio->direction[5].q, a0), AND(gpio->pin_read[5], NOT(a0)), a1);
+    out[6] = mux2(mux2(gpio->output[6].q, gpio->direction[6].q, a0), AND(gpio->pin_read[6], NOT(a0)), a1);
+    out[7] = mux2(mux2(gpio->output[7].q, gpio->direction[7].q, a0), AND(gpio->pin_read[7], NOT(a0)), a1);
 }
 
 void gpio_read_pins(gpio_t *gpio, bit *out) {

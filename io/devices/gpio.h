@@ -9,8 +9,6 @@
 typedef struct {
     d_flip_flop_t output[GPIO_PINS];
     d_flip_flop_t direction[GPIO_PINS];
-    d_flip_flop_t pull_enable[GPIO_PINS];
-    d_flip_flop_t pull_up[GPIO_PINS];
 
     bit input[GPIO_PINS];
     bit output_data[GPIO_PINS];
