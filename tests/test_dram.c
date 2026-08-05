@@ -116,7 +116,44 @@ static void test_selective_refresh(void) {
     CHECK_EQ_U32(dread(&d, 4), 0u, "row 4 lost after 2nd leak w/o refresh");
 }
 
+static void test_write_during_leak(void) {
+    test_suite("dram: write in the same cycle as a leak is kept");
+    dram_16x32_t d;
+    dram_init(&d);
+    dram_reset(&d);
+    bit a[4], v[32];
+    to_bits_n(9, a, 4);
+    to_bits_32(0x5A5A5A5Au, v);
+    dram_set_addr(&d, a);
+    dram_set_data(&d, v);
+    dram_set_write(&d, 1);
+    dram_set_refresh(&d, 0);
+    dram_set_leak(&d, 1);
+    dram_clock_fall(&d);
+    dram_clock_rise(&d);
+    dram_set_write(&d, 0);
+    dram_set_leak(&d, 0);
+    CHECK_EQ_U32(dread(&d, 9), 0x5A5A5A5Au, "written value readable");
+    dleak(&d);
+    CHECK_EQ_U32(dread(&d, 9), 0x5A5A5A5Au, "write counted as refresh for the next period");
+}
+
+static void test_refresh_does_not_resurrect(void) {
+    test_suite("dram: refresh after decay does not bring data back");
+    dram_16x32_t d;
+    dram_init(&d);
+    dram_reset(&d);
+    dwrite(&d, 2, 0xABCD0123u);
+    dleak(&d);
+    dleak(&d);
+    CHECK_EQ_U32(dread(&d, 2), 0u, "decayed");
+    drefresh(&d, 2);
+    CHECK_EQ_U32(dread(&d, 2), 0u, "still lost after refresh");
+}
+
 int main(void) {
+    test_write_during_leak();
+    test_refresh_does_not_resurrect();
     test_read_write();
     test_retention_one_leak();
     test_loss_without_refresh();
