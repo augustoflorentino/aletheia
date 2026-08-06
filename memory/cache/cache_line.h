@@ -12,6 +12,7 @@ typedef struct {
 
     bit write_enable;
     bit set_valid;
+    bit invalidate;
     bit set_dirty;
     bit clear_dirty;
     bit tag_in[20];
@@ -22,6 +23,7 @@ void cache_line_init(cache_line_t *line);
 void cache_line_reset(cache_line_t *line);
 void cache_line_set_write(cache_line_t *line, bit we);
 void cache_line_set_valid(cache_line_t *line, bit valid);
+void cache_line_set_invalidate(cache_line_t *line, bit invalidate);
 void cache_line_set_dirty(cache_line_t *line, bit dirty, bit clear);
 void cache_line_set_tag(cache_line_t *line, bit *tag);
 void cache_line_set_data(cache_line_t *line, bit *data);

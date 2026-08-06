@@ -37,6 +37,7 @@ void cache_line_init(cache_line_t *line) {
 
     line->write_enable = 0;
     line->set_valid = 0;
+    line->invalidate = 0;
     line->set_dirty = 0;
     line->clear_dirty = 0;
 
@@ -79,6 +80,10 @@ void cache_line_set_write(cache_line_t *line, bit we) {
 
 void cache_line_set_valid(cache_line_t *line, bit valid) {
     line->set_valid = valid;
+}
+
+void cache_line_set_invalidate(cache_line_t *line, bit invalidate) {
+    line->invalidate = invalidate;
 }
 
 void cache_line_set_dirty(cache_line_t *line, bit dirty, bit clear) {
@@ -155,7 +160,7 @@ void cache_line_clock_rise(cache_line_t *line) {
 void cache_line_clock_fall(cache_line_t *line) {
     bit we = line->write_enable;
 
-    line->valid.d = mux2(line->valid.q, 1, line->set_valid);
+    line->valid.d = mux2(mux2(line->valid.q, 1, line->set_valid), 0, line->invalidate);
 
     bit new_dirty = mux2(line->dirty.q, 1, line->set_dirty);
     new_dirty = mux2(new_dirty, 0, line->clear_dirty);
