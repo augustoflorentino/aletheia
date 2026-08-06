@@ -16,6 +16,7 @@ typedef struct {
 typedef struct {
     bit *signal_ptr;
     bit trigger_value;
+    bit last_value;
     int enabled;
     int hit_count;
 } watchpoint_t;
@@ -26,15 +27,19 @@ typedef struct {
     watchpoint_t watchpoints[MAX_WATCHPOINTS];
     int watchpoint_count;
     int single_step;
+    int step_budget;
     int running;
-    unsigned int *pc_ptr;
+    int skip_pending;
+    unsigned int skip_pc;
+    bit *pc_bits;
     void (*halt_callback)(void *);
     void *halt_context;
 } debugger_t;
 
 void debugger_init(debugger_t *dbg);
 void debugger_reset(debugger_t *dbg);
-void debugger_set_pc_ptr(debugger_t *dbg, unsigned int *pc);
+void debugger_set_pc_bits(debugger_t *dbg, bit *pc);
+unsigned int debugger_pc(debugger_t *dbg);
 void debugger_set_halt_callback(debugger_t *dbg, void (*cb)(void *), void *ctx);
 
 int debugger_add_breakpoint(debugger_t *dbg, unsigned int address);
