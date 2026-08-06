@@ -28,6 +28,15 @@ typedef struct {
     d_flip_flop_t mem_to_reg;
     d_flip_flop_t reg_write;
     d_flip_flop_t branch;
+    d_flip_flop_t branch_ne;
+    d_flip_flop_t imm_zero_ext;
+    d_flip_flop_t shift_rt;
+    d_flip_flop_t shift_shamt;
+    d_flip_flop_t lui;
+    d_flip_flop_t link;
+    d_flip_flop_t jr;
+    d_flip_flop_t undef;
+    d_flip_flop_t reti;
     d_flip_flop_t valid;
     bit flush;
     bit stall;
@@ -42,6 +51,9 @@ typedef struct {
     d_flip_flop_t mem_to_reg;
     d_flip_flop_t reg_write;
     d_flip_flop_t zero_flag;
+    d_flip_flop_t undef;
+    d_flip_flop_t reti;
+    d_flip_flop_t pc[32];
     d_flip_flop_t valid;
     bit flush;
 } ex_mem_reg_t;
