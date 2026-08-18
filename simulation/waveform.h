@@ -2,18 +2,22 @@
 #define ALETHEIA_WAVEFORM_H
 
 #include <stdio.h>
+#include <stdint.h>
 #include "../core/types.h"
 #include "scheduler.h"
 
 #define MAX_VCD_SIGNALS     256
 #define MAX_SIGNAL_NAME_LEN 64
 
+#define VCD_ID_LEN          4
+
 typedef struct {
     char name[MAX_SIGNAL_NAME_LEN];
     int width;
-    char id;
+    char id[VCD_ID_LEN];
     bit *value_ptr;
-    bit last_value;
+    uint32_t last_value;
+    int dumped;
 } vcd_signal_t;
 
 typedef struct {
@@ -21,8 +25,8 @@ typedef struct {
     vcd_signal_t signals[MAX_VCD_SIGNALS];
     int signal_count;
     sim_time_t last_time;
+    int time_written;
     int enabled;
-    char next_id;
 } vcd_writer_t;
 
 void vcd_init(vcd_writer_t *vcd);
