@@ -49,8 +49,8 @@ void power_clock_fall(power_controller_t *pwr) {
     bit count_done = AND(AND(cnt0, cnt1), cnt2);
     bit counting = AND(pwr_ok, NOT(count_done));
 
-    bit b0 = NOT(cnt0);
-    bit b1 = AND(b0, NOT(cnt1));
+    bit b0 = cnt0;
+    bit b1 = AND(cnt0, cnt1);
 
     bit new_c0 = NOT(cnt0);
     bit new_c1 = mux2(cnt1, NOT(cnt1), b0);
