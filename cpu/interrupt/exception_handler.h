@@ -16,7 +16,6 @@
 typedef struct {
     d_flip_flop_t epc[32];
     d_flip_flop_t cause[4];
-    d_flip_flop_t status[8];
     d_flip_flop_t in_exception;
 
     bit exc_reset;

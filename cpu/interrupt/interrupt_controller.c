@@ -19,6 +19,14 @@ void intc_init(interrupt_controller_t *ic) {
     dff_reset(&ic->in_service[6]); dff_reset(&ic->in_service[7]);
 
     dff_reset(&ic->global_enable);
+    dff_reset(&ic->irq_prev[0]);
+    dff_reset(&ic->irq_prev[1]);
+    dff_reset(&ic->irq_prev[2]);
+    dff_reset(&ic->irq_prev[3]);
+    dff_reset(&ic->irq_prev[4]);
+    dff_reset(&ic->irq_prev[5]);
+    dff_reset(&ic->irq_prev[6]);
+    dff_reset(&ic->irq_prev[7]);
     ic->global_enable.q = 1;
 
     ic->irq_in[0] = 0; ic->irq_in[1] = 0; ic->irq_in[2] = 0; ic->irq_in[3] = 0;
@@ -87,6 +95,14 @@ void intc_clock_rise(interrupt_controller_t *ic) {
     dff_clock_rise(&ic->in_service[6]); dff_clock_rise(&ic->in_service[7]);
 
     dff_clock_rise(&ic->global_enable);
+    dff_clock_rise(&ic->irq_prev[0]);
+    dff_clock_rise(&ic->irq_prev[1]);
+    dff_clock_rise(&ic->irq_prev[2]);
+    dff_clock_rise(&ic->irq_prev[3]);
+    dff_clock_rise(&ic->irq_prev[4]);
+    dff_clock_rise(&ic->irq_prev[5]);
+    dff_clock_rise(&ic->irq_prev[6]);
+    dff_clock_rise(&ic->irq_prev[7]);
 }
 
 void intc_clock_fall(interrupt_controller_t *ic) {
@@ -112,15 +128,6 @@ void intc_clock_fall(interrupt_controller_t *ic) {
     bit clear5 = AND(ic->ack, ack_sel[5]);
     bit clear6 = AND(ic->ack, ack_sel[6]);
     bit clear7 = AND(ic->ack, ack_sel[7]);
-
-    ic->pending[0].d = AND(OR(ic->pending[0].q, ic->irq_in[0]), NOT(clear0));
-    ic->pending[1].d = AND(OR(ic->pending[1].q, ic->irq_in[1]), NOT(clear1));
-    ic->pending[2].d = AND(OR(ic->pending[2].q, ic->irq_in[2]), NOT(clear2));
-    ic->pending[3].d = AND(OR(ic->pending[3].q, ic->irq_in[3]), NOT(clear3));
-    ic->pending[4].d = AND(OR(ic->pending[4].q, ic->irq_in[4]), NOT(clear4));
-    ic->pending[5].d = AND(OR(ic->pending[5].q, ic->irq_in[5]), NOT(clear5));
-    ic->pending[6].d = AND(OR(ic->pending[6].q, ic->irq_in[6]), NOT(clear6));
-    ic->pending[7].d = AND(OR(ic->pending[7].q, ic->irq_in[7]), NOT(clear7));
 
     bit svc_sel[8];
     bit sn0 = NOT(ic->service_num[0]);
@@ -153,7 +160,22 @@ void intc_clock_fall(interrupt_controller_t *ic) {
     ic->in_service[5].d = mux2(mux2(ic->in_service[5].q, 0, clear5), 1, set5);
     ic->in_service[6].d = mux2(mux2(ic->in_service[6].q, 0, clear6), 1, set6);
     ic->in_service[7].d = mux2(mux2(ic->in_service[7].q, 0, clear7), 1, set7);
-
+    ic->pending[0].d = OR(AND(ic->pending[0].q, NOT(set0)), AND(ic->irq_in[0], NOT(ic->irq_prev[0].q)));
+    ic->pending[1].d = OR(AND(ic->pending[1].q, NOT(set1)), AND(ic->irq_in[1], NOT(ic->irq_prev[1].q)));
+    ic->pending[2].d = OR(AND(ic->pending[2].q, NOT(set2)), AND(ic->irq_in[2], NOT(ic->irq_prev[2].q)));
+    ic->pending[3].d = OR(AND(ic->pending[3].q, NOT(set3)), AND(ic->irq_in[3], NOT(ic->irq_prev[3].q)));
+    ic->pending[4].d = OR(AND(ic->pending[4].q, NOT(set4)), AND(ic->irq_in[4], NOT(ic->irq_prev[4].q)));
+    ic->pending[5].d = OR(AND(ic->pending[5].q, NOT(set5)), AND(ic->irq_in[5], NOT(ic->irq_prev[5].q)));
+    ic->pending[6].d = OR(AND(ic->pending[6].q, NOT(set6)), AND(ic->irq_in[6], NOT(ic->irq_prev[6].q)));
+    ic->pending[7].d = OR(AND(ic->pending[7].q, NOT(set7)), AND(ic->irq_in[7], NOT(ic->irq_prev[7].q)));
+    ic->irq_prev[0].d = ic->irq_in[0];
+    ic->irq_prev[1].d = ic->irq_in[1];
+    ic->irq_prev[2].d = ic->irq_in[2];
+    ic->irq_prev[3].d = ic->irq_in[3];
+    ic->irq_prev[4].d = ic->irq_in[4];
+    ic->irq_prev[5].d = ic->irq_in[5];
+    ic->irq_prev[6].d = ic->irq_in[6];
+    ic->irq_prev[7].d = ic->irq_in[7];
     dff_clock_fall(&ic->pending[0]); dff_clock_fall(&ic->pending[1]);
     dff_clock_fall(&ic->pending[2]); dff_clock_fall(&ic->pending[3]);
     dff_clock_fall(&ic->pending[4]); dff_clock_fall(&ic->pending[5]);
@@ -170,54 +192,57 @@ void intc_clock_fall(interrupt_controller_t *ic) {
     dff_clock_fall(&ic->in_service[6]); dff_clock_fall(&ic->in_service[7]);
 
     dff_clock_fall(&ic->global_enable);
+    dff_clock_fall(&ic->irq_prev[0]);
+    dff_clock_fall(&ic->irq_prev[1]);
+    dff_clock_fall(&ic->irq_prev[2]);
+    dff_clock_fall(&ic->irq_prev[3]);
+    dff_clock_fall(&ic->irq_prev[4]);
+    dff_clock_fall(&ic->irq_prev[5]);
+    dff_clock_fall(&ic->irq_prev[6]);
+    dff_clock_fall(&ic->irq_prev[7]);
+}
+
+static void lowest_set8(bit *in, bit *num, bit *any) {
+    bit h1 = in[0];
+    bit h2 = OR(h1, in[1]);
+    bit h3 = OR(h2, in[2]);
+    bit h4 = OR(h3, in[3]);
+    bit h5 = OR(h4, in[4]);
+    bit h6 = OR(h5, in[5]);
+    bit h7 = OR(h6, in[6]);
+    bit f1 = AND(in[1], NOT(h1));
+    bit f2 = AND(in[2], NOT(h2));
+    bit f3 = AND(in[3], NOT(h3));
+    bit f4 = AND(in[4], NOT(h4));
+    bit f5 = AND(in[5], NOT(h5));
+    bit f6 = AND(in[6], NOT(h6));
+    bit f7 = AND(in[7], NOT(h7));
+    num[0] = OR(OR(f1, f3), OR(f5, f7));
+    num[1] = OR(OR(f2, f3), OR(f6, f7));
+    num[2] = OR(OR(f4, f5), OR(f6, f7));
+    *any = OR(h7, in[7]);
 }
 
 void intc_propagate(interrupt_controller_t *ic) {
+    bit b0 = ic->in_service[0].q;
+    bit b1 = OR(b0, ic->in_service[1].q);
+    bit b2 = OR(b1, ic->in_service[2].q);
+    bit b3 = OR(b2, ic->in_service[3].q);
+    bit b4 = OR(b3, ic->in_service[4].q);
+    bit b5 = OR(b4, ic->in_service[5].q);
+    bit b6 = OR(b5, ic->in_service[6].q);
+    bit b7 = OR(b6, ic->in_service[7].q);
     bit active[8];
-    active[0] = AND(AND(ic->pending[0].q, ic->mask[0].q), NOT(ic->in_service[0].q));
-    active[1] = AND(AND(ic->pending[1].q, ic->mask[1].q), NOT(ic->in_service[1].q));
-    active[2] = AND(AND(ic->pending[2].q, ic->mask[2].q), NOT(ic->in_service[2].q));
-    active[3] = AND(AND(ic->pending[3].q, ic->mask[3].q), NOT(ic->in_service[3].q));
-    active[4] = AND(AND(ic->pending[4].q, ic->mask[4].q), NOT(ic->in_service[4].q));
-    active[5] = AND(AND(ic->pending[5].q, ic->mask[5].q), NOT(ic->in_service[5].q));
-    active[6] = AND(AND(ic->pending[6].q, ic->mask[6].q), NOT(ic->in_service[6].q));
-    active[7] = AND(AND(ic->pending[7].q, ic->mask[7].q), NOT(ic->in_service[7].q));
-
-    bit any_active = OR(OR(OR(active[0], active[1]), OR(active[2], active[3])),
-                        OR(OR(active[4], active[5]), OR(active[6], active[7])));
-
-    bit v0_from_1 = AND(active[1], NOT(active[0]));
-    bit v0_from_3 = AND(active[3], AND(NOT(active[0]), AND(NOT(active[1]), NOT(active[2]))));
-    bit v0_from_5 = AND(active[5], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]), NOT(active[4]))))));
-    bit v0_from_7 = AND(active[7], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]),
-                        AND(NOT(active[4]), AND(NOT(active[5]), NOT(active[6]))))))));
-
-    bit v1_from_2 = AND(active[2], AND(NOT(active[0]), NOT(active[1])));
-    bit v1_from_3 = AND(active[3], AND(NOT(active[0]), AND(NOT(active[1]), NOT(active[2]))));
-    bit v1_from_6 = AND(active[6], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]),
-                        AND(NOT(active[4]), NOT(active[5])))))));
-    bit v1_from_7 = AND(active[7], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]),
-                        AND(NOT(active[4]), AND(NOT(active[5]), NOT(active[6]))))))));
-
-    bit v2_from_4 = AND(active[4], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), NOT(active[3])))));
-    bit v2_from_5 = AND(active[5], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]), NOT(active[4]))))));
-    bit v2_from_6 = AND(active[6], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]),
-                        AND(NOT(active[4]), NOT(active[5])))))));
-    bit v2_from_7 = AND(active[7], AND(NOT(active[0]), AND(NOT(active[1]),
-                        AND(NOT(active[2]), AND(NOT(active[3]),
-                        AND(NOT(active[4]), AND(NOT(active[5]), NOT(active[6]))))))));
-
-    ic->vector[0] = OR(OR(v0_from_1, v0_from_3), OR(v0_from_5, v0_from_7));
-    ic->vector[1] = OR(OR(v1_from_2, v1_from_3), OR(v1_from_6, v1_from_7));
-    ic->vector[2] = OR(OR(v2_from_4, v2_from_5), OR(v2_from_6, v2_from_7));
-
+    active[0] = AND(AND(ic->pending[0].q, ic->mask[0].q), NOT(b0));
+    active[1] = AND(AND(ic->pending[1].q, ic->mask[1].q), NOT(b1));
+    active[2] = AND(AND(ic->pending[2].q, ic->mask[2].q), NOT(b2));
+    active[3] = AND(AND(ic->pending[3].q, ic->mask[3].q), NOT(b3));
+    active[4] = AND(AND(ic->pending[4].q, ic->mask[4].q), NOT(b4));
+    active[5] = AND(AND(ic->pending[5].q, ic->mask[5].q), NOT(b5));
+    active[6] = AND(AND(ic->pending[6].q, ic->mask[6].q), NOT(b6));
+    active[7] = AND(AND(ic->pending[7].q, ic->mask[7].q), NOT(b7));
+    bit any_active;
+    lowest_set8(active, ic->vector, &any_active);
     ic->irq_out = AND(any_active, ic->global_enable.q);
     ic->has_pending = any_active;
 }
@@ -234,4 +259,17 @@ void intc_get_vector(interrupt_controller_t *ic, bit *out) {
 
 bit intc_has_pending(interrupt_controller_t *ic) {
     return ic->has_pending;
+}
+
+void intc_get_top_service(interrupt_controller_t *ic, bit *num, bit *any) {
+    bit svc[8];
+    svc[0] = ic->in_service[0].q;
+    svc[1] = ic->in_service[1].q;
+    svc[2] = ic->in_service[2].q;
+    svc[3] = ic->in_service[3].q;
+    svc[4] = ic->in_service[4].q;
+    svc[5] = ic->in_service[5].q;
+    svc[6] = ic->in_service[6].q;
+    svc[7] = ic->in_service[7].q;
+    lowest_set8(svc, num, any);
 }

@@ -70,7 +70,8 @@ static void test_mask_and_service_gating(void) {
         int active[NUM_INTERRUPTS];
         int i;
         for (i = 0; i < NUM_INTERRUPTS; i++) {
-            active[i] = ((pending >> i) & 1u) && ((mask >> i) & 1u) && !((in_service >> i) & 1u);
+            uint32_t same_or_higher = (2u << i) - 1u;
+            active[i] = ((pending >> i) & 1u) && ((mask >> i) & 1u) && !(in_service & same_or_higher);
         }
         int low = ref_lowest_active(active);
 
@@ -85,7 +86,7 @@ static void test_mask_and_service_gating(void) {
 }
 
 static void test_dynamic_ack(void) {
-    test_suite("interrupt: raise / detect / ack clears");
+    test_suite("interrupt: raise / service / preempt / ack");
 
     interrupt_controller_t ic;
     intc_reset(&ic);
@@ -108,15 +109,69 @@ static void test_dynamic_ack(void) {
     CHECK_EQ_U32(from_bits_n(vec, 3), 5u, "vector points to line 5");
 
     bit no_irq[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    bit ack_num[3];
-    to_bits_n(5u, ack_num, 3);
+    bit num5[3], num2[3], none[3] = {0, 0, 0};
+    to_bits_n(5u, num5, 3);
+    to_bits_n(2u, num2, 3);
     intc_set_irq(&ic, no_irq);
-    intc_set_ack(&ic, 1, ack_num);
+    intc_set_service(&ic, 1, num5);
     intc_clock_fall(&ic);
     intc_clock_rise(&ic);
     intc_propagate(&ic);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 0, "irq_out cleared once in service");
 
-    CHECK_EQ_BIT(intc_get_irq_out(&ic), 0, "irq_out cleared after ack");
+    intc_set_service(&ic, 0, none);
+    intc_set_irq(&ic, irq);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_irq(&ic, no_irq);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_propagate(&ic);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 0, "same line waits while in service");
+
+    bit irq7[8] = {0, 0, 0, 0, 0, 0, 0, 1};
+    intc_set_irq(&ic, irq7);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_irq(&ic, no_irq);
+    intc_propagate(&ic);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 0, "lower priority does not preempt");
+
+    bit irq2[8] = {0, 0, 1, 0, 0, 0, 0, 0};
+    intc_set_irq(&ic, irq2);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_irq(&ic, no_irq);
+    intc_propagate(&ic);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 1, "higher priority preempts");
+    intc_get_vector(&ic, vec);
+    CHECK_EQ_U32(from_bits_n(vec, 3), 2u, "preempting vector is line 2");
+    intc_set_service(&ic, 1, num2);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_service(&ic, 0, none);
+
+    bit top[3], any;
+    intc_get_top_service(&ic, top, &any);
+    CHECK_EQ_U32(from_bits_n(top, 3), 2u, "ack targets highest priority in service");
+    intc_set_ack(&ic, 1, top);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_ack(&ic, 0, top);
+    intc_propagate(&ic);
+    intc_get_vector(&ic, vec);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 0, "line 5 still blocks line 7");
+
+    intc_get_top_service(&ic, top, &any);
+    CHECK_EQ_U32(from_bits_n(top, 3), 5u, "next ack targets line 5");
+    intc_set_ack(&ic, 1, top);
+    intc_clock_fall(&ic);
+    intc_clock_rise(&ic);
+    intc_set_ack(&ic, 0, top);
+    intc_propagate(&ic);
+    CHECK_EQ_BIT(intc_get_irq_out(&ic), 1, "pulse received during handler is served after ack");
+    intc_get_vector(&ic, vec);
+    CHECK_EQ_U32(from_bits_n(vec, 3), 5u, "pending second pulse on line 5 wins over line 7");
 }
 
 static void assert_handler(exception_handler_t *eh, uint32_t code) {
@@ -174,17 +229,61 @@ static void test_exception_cause(void) {
     assert_handler(&eh, EXC_INTERRUPT);
 }
 
-static void test_exception_nested_and_epc(void) {
-    test_suite("exception: no nesting / epc save");
+static void test_exception_priority(void) {
+    test_suite("exception: priority between simultaneous sources");
 
     exception_handler_t eh;
+    bit vec0[3] = {0, 0, 0};
+
+    exc_init(&eh);
+    exc_set_undefined(&eh, 1);
+    exc_set_interrupt(&eh, 1, vec0);
+    assert_handler(&eh, EXC_UNDEFINED);
+
+    exc_init(&eh);
+    exc_set_addr_error(&eh, 1);
+    exc_set_bus_error(&eh, 1);
+    assert_handler(&eh, EXC_ADDR_ERROR);
+
+    exc_init(&eh);
+    exc_set_syscall(&eh, 1);
+    exc_set_overflow(&eh, 1);
+    assert_handler(&eh, EXC_SYSCALL);
+}
+
+static void test_exception_nested_and_epc(void) {
+    test_suite("exception: nesting / epc save");
+
+    exception_handler_t eh;
+    bit vec0[3] = {0, 0, 0};
     exc_init(&eh);
     exc_reset(&eh);
 
     eh.in_exception.q = 1;
-    exc_set_syscall(&eh, 1);
+    exc_set_interrupt(&eh, 1, vec0);
     exc_propagate(&eh);
-    CHECK_EQ_BIT(exc_get_exception_taken(&eh), 0, "no nested exception");
+    CHECK_EQ_BIT(exc_get_exception_taken(&eh), 0, "interrupt masked inside handler");
+
+    exc_init(&eh);
+    bit pc0[32], pc1[32], ret0[32];
+    to_bits_32(0x40u, pc0);
+    to_bits_32(0x75u, pc1);
+    exc_set_pc(&eh, pc0);
+    exc_set_addr_error(&eh, 1);
+    exc_clock_fall(&eh);
+    exc_clock_rise(&eh);
+    exc_set_pc(&eh, pc1);
+    exc_set_addr_error(&eh, 0);
+    exc_set_undefined(&eh, 1);
+    exc_propagate(&eh);
+    CHECK_EQ_BIT(exc_get_exception_taken(&eh), 1, "synchronous exception taken inside handler");
+    exc_clock_fall(&eh);
+    exc_clock_rise(&eh);
+    exc_get_return_addr(&eh, ret0);
+    CHECK_EQ_U32(from_bits_32(ret0), 0x40u, "nested exception keeps original epc");
+    bit c0[4];
+    exc_get_cause(&eh, c0);
+    CHECK_EQ_U32(from_bits_n(c0, 4), EXC_UNDEFINED, "nested exception updates cause");
 
     exc_init(&eh);
     exc_reset(&eh);
@@ -210,6 +309,7 @@ int main(void) {
     test_mask_and_service_gating();
     test_dynamic_ack();
     test_exception_cause();
+    test_exception_priority();
     test_exception_nested_and_epc();
     return test_report();
 }

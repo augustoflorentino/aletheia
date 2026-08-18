@@ -28,12 +28,12 @@ static void test_pic_flow(void) {
     bit vec[3];
     to_bits_n(3u, vec, 3);
     pic_raise(&p, no_irq);
-    pic_ack(&p, vec);
+    intc_set_service(&p.ic, 1, vec);
     pic_clock_fall(&p);
     pic_clock_rise(&p);
     pic_propagate(&p);
 
-    CHECK_EQ_BIT(p.int_request, 0, "int request cleared after ack");
+    CHECK_EQ_BIT(p.int_request, 0, "int request cleared once in service");
 }
 
 static void test_pic_mask(void) {

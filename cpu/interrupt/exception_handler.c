@@ -24,10 +24,6 @@ void exc_init(exception_handler_t *eh) {
     dff_reset(&eh->cause[0]); dff_reset(&eh->cause[1]);
     dff_reset(&eh->cause[2]); dff_reset(&eh->cause[3]);
 
-    dff_reset(&eh->status[0]); dff_reset(&eh->status[1]);
-    dff_reset(&eh->status[2]); dff_reset(&eh->status[3]);
-    dff_reset(&eh->status[4]); dff_reset(&eh->status[5]);
-    dff_reset(&eh->status[6]); dff_reset(&eh->status[7]);
 
     dff_reset(&eh->in_exception);
 
@@ -175,21 +171,42 @@ void exc_clock_rise(exception_handler_t *eh) {
     dff_clock_rise(&eh->cause[0]); dff_clock_rise(&eh->cause[1]);
     dff_clock_rise(&eh->cause[2]); dff_clock_rise(&eh->cause[3]);
 
-    dff_clock_rise(&eh->status[0]); dff_clock_rise(&eh->status[1]);
-    dff_clock_rise(&eh->status[2]); dff_clock_rise(&eh->status[3]);
-    dff_clock_rise(&eh->status[4]); dff_clock_rise(&eh->status[5]);
-    dff_clock_rise(&eh->status[6]); dff_clock_rise(&eh->status[7]);
 
     dff_clock_rise(&eh->in_exception);
 }
 
-void exc_clock_fall(exception_handler_t *eh) {
-    bit any_exc = OR(OR(OR(eh->exc_reset, eh->exc_undefined),
-                        OR(eh->exc_syscall, eh->exc_break)),
-                     OR(OR(eh->exc_overflow, eh->exc_addr_error),
-                        OR(eh->exc_bus_error, eh->exc_interrupt)));
+typedef struct {
+    bit taken;
+    bit save_epc;
+    bit cause[3];
+} exc_decision_t;
 
-    bit save_epc = AND(any_exc, NOT(eh->in_exception.q));
+static void exc_decide(exception_handler_t *eh, exc_decision_t *d) {
+    bit h1 = eh->exc_reset;
+    bit h2 = OR(h1, eh->exc_undefined);
+    bit h3 = OR(h2, eh->exc_syscall);
+    bit h4 = OR(h3, eh->exc_break);
+    bit h5 = OR(h4, eh->exc_overflow);
+    bit h6 = OR(h5, eh->exc_addr_error);
+    bit h7 = OR(h6, eh->exc_bus_error);
+    bit m1 = AND(eh->exc_undefined, NOT(h1));
+    bit m2 = AND(eh->exc_syscall, NOT(h2));
+    bit m3 = AND(eh->exc_break, NOT(h3));
+    bit m4 = AND(eh->exc_overflow, NOT(h4));
+    bit m5 = AND(eh->exc_addr_error, NOT(h5));
+    bit m6 = AND(eh->exc_bus_error, NOT(h6));
+    bit irq = AND(AND(eh->exc_interrupt, NOT(h7)), NOT(eh->in_exception.q));
+    d->taken = OR(h7, irq);
+    d->save_epc = AND(d->taken, NOT(eh->in_exception.q));
+    d->cause[0] = OR(OR(m1, m3), OR(m5, irq));
+    d->cause[1] = OR(OR(m2, m3), OR(m6, irq));
+    d->cause[2] = OR(OR(m4, m5), OR(m6, irq));
+}
+
+void exc_clock_fall(exception_handler_t *eh) {
+    exc_decision_t dec;
+    exc_decide(eh, &dec);
+    bit save_epc = dec.save_epc;
 
     eh->epc[0].d = mux2(eh->epc[0].q, eh->pc_in[0], save_epc);
     eh->epc[1].d = mux2(eh->epc[1].q, eh->pc_in[1], save_epc);
@@ -224,18 +241,12 @@ void exc_clock_fall(exception_handler_t *eh) {
     eh->epc[30].d = mux2(eh->epc[30].q, eh->pc_in[30], save_epc);
     eh->epc[31].d = mux2(eh->epc[31].q, eh->pc_in[31], save_epc);
 
-    bit cause_val[4];
-    cause_val[0] = OR(eh->exc_undefined, OR(eh->exc_break, OR(eh->exc_addr_error, eh->exc_interrupt)));
-    cause_val[1] = OR(eh->exc_syscall, OR(eh->exc_break, OR(eh->exc_bus_error, eh->exc_interrupt)));
-    cause_val[2] = OR(eh->exc_overflow, OR(eh->exc_addr_error, OR(eh->exc_bus_error, eh->exc_interrupt)));
-    cause_val[3] = 0;
+    eh->cause[0].d = mux2(eh->cause[0].q, dec.cause[0], dec.taken);
+    eh->cause[1].d = mux2(eh->cause[1].q, dec.cause[1], dec.taken);
+    eh->cause[2].d = mux2(eh->cause[2].q, dec.cause[2], dec.taken);
+    eh->cause[3].d = mux2(eh->cause[3].q, 0, dec.taken);
 
-    eh->cause[0].d = mux2(eh->cause[0].q, cause_val[0], save_epc);
-    eh->cause[1].d = mux2(eh->cause[1].q, cause_val[1], save_epc);
-    eh->cause[2].d = mux2(eh->cause[2].q, cause_val[2], save_epc);
-    eh->cause[3].d = mux2(eh->cause[3].q, cause_val[3], save_epc);
-
-    eh->in_exception.d = AND(mux2(eh->in_exception.q, 1, save_epc), NOT(eh->exc_return));
+    eh->in_exception.d = AND(OR(eh->in_exception.q, dec.taken), NOT(eh->exc_return));
 
     int i;
     i = 0; dff_clock_fall(&eh->epc[i]); i = 1; dff_clock_fall(&eh->epc[i]);
@@ -258,28 +269,21 @@ void exc_clock_fall(exception_handler_t *eh) {
     dff_clock_fall(&eh->cause[0]); dff_clock_fall(&eh->cause[1]);
     dff_clock_fall(&eh->cause[2]); dff_clock_fall(&eh->cause[3]);
 
-    dff_clock_fall(&eh->status[0]); dff_clock_fall(&eh->status[1]);
-    dff_clock_fall(&eh->status[2]); dff_clock_fall(&eh->status[3]);
-    dff_clock_fall(&eh->status[4]); dff_clock_fall(&eh->status[5]);
-    dff_clock_fall(&eh->status[6]); dff_clock_fall(&eh->status[7]);
 
     dff_clock_fall(&eh->in_exception);
 }
 
 void exc_propagate(exception_handler_t *eh) {
-    bit any_exc = OR(OR(OR(eh->exc_reset, eh->exc_undefined),
-                        OR(eh->exc_syscall, eh->exc_break)),
-                     OR(OR(eh->exc_overflow, eh->exc_addr_error),
-                        OR(eh->exc_bus_error, eh->exc_interrupt)));
-
-    eh->exception_taken = AND(any_exc, NOT(eh->in_exception.q));
+    exc_decision_t dec;
+    exc_decide(eh, &dec);
+    eh->exception_taken = dec.taken;
 
     eh->handler_addr[0] = 0; eh->handler_addr[1] = 0;
     eh->handler_addr[2] = 0; eh->handler_addr[3] = 0;
 
-    eh->handler_addr[4] = OR(eh->exc_undefined, OR(eh->exc_break, OR(eh->exc_addr_error, eh->exc_interrupt)));
-    eh->handler_addr[5] = OR(eh->exc_syscall, OR(eh->exc_break, OR(eh->exc_bus_error, eh->exc_interrupt)));
-    eh->handler_addr[6] = OR(eh->exc_overflow, OR(eh->exc_addr_error, OR(eh->exc_bus_error, eh->exc_interrupt)));
+    eh->handler_addr[4] = dec.cause[0];
+    eh->handler_addr[5] = dec.cause[1];
+    eh->handler_addr[6] = dec.cause[2];
     eh->handler_addr[7] = 0;
 
     eh->handler_addr[8] = 0;

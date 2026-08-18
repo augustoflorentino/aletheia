@@ -11,6 +11,7 @@ typedef struct {
     d_flip_flop_t mask[NUM_INTERRUPTS];
     d_flip_flop_t in_service[NUM_INTERRUPTS];
     d_flip_flop_t global_enable;
+    d_flip_flop_t irq_prev[NUM_INTERRUPTS];
 
     bit irq_in[NUM_INTERRUPTS];
     bit ack;
@@ -39,5 +40,6 @@ void intc_propagate(interrupt_controller_t *ic);
 bit intc_get_irq_out(interrupt_controller_t *ic);
 void intc_get_vector(interrupt_controller_t *ic, bit *out);
 bit intc_has_pending(interrupt_controller_t *ic);
+void intc_get_top_service(interrupt_controller_t *ic, bit *num, bit *any);
 
 #endif
