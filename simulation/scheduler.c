@@ -2,6 +2,7 @@
 
 void scheduler_init(scheduler_t *sched) {
     sched->event_count = 0;
+    sched->next_seq = 0;
     sched->current_time = 0;
     sched->clock_period = 10;
     sched->running = 0;
@@ -13,6 +14,7 @@ void scheduler_init(scheduler_t *sched) {
 
 void scheduler_reset(scheduler_t *sched) {
     sched->event_count = 0;
+    sched->next_seq = 0;
     sched->current_time = 0;
     sched->running = 0;
     sched->halt_requested = 0;
@@ -29,26 +31,29 @@ sim_time_t scheduler_get_time(scheduler_t *sched) {
     return sched->current_time;
 }
 
-void scheduler_schedule(scheduler_t *sched, sim_time_t delay, event_callback_fn cb, void *ctx) {
+int scheduler_schedule(scheduler_t *sched, sim_time_t delay, event_callback_fn cb, void *ctx) {
     for (int i = 0; i < MAX_EVENTS; i++) {
         if (!sched->events[i].valid) {
             sched->events[i].time = sched->current_time + delay;
             sched->events[i].callback = cb;
             sched->events[i].context = ctx;
+            sched->events[i].seq = sched->next_seq++;
             sched->events[i].valid = 1;
             sched->event_count++;
-            return;
+            return 0;
         }
     }
+    return -1;
+}
+
+static int comes_before(const event_t *a, const event_t *b) {
+    return a->time < b->time || (a->time == b->time && a->seq < b->seq);
 }
 
 static int find_next_event(scheduler_t *sched) {
     int min_idx = -1;
-    sim_time_t min_time = 0xFFFFFFFFFFFFFFFFULL;
-
     for (int i = 0; i < MAX_EVENTS; i++) {
-        if (sched->events[i].valid && sched->events[i].time < min_time) {
-            min_time = sched->events[i].time;
+        if (sched->events[i].valid && (min_idx < 0 || comes_before(&sched->events[i], &sched->events[min_idx]))) {
             min_idx = i;
         }
     }

@@ -32,6 +32,6 @@ sim_time_t timing_get_clock_to_q(timing_model_t *tm);
 sim_time_t timing_get_memory_access(timing_model_t *tm);
 
 int timing_check_setup(timing_model_t *tm, sim_time_t data_stable_time, sim_time_t clock_edge);
-int timing_check_hold(timing_model_t *tm, sim_time_t data_stable_time, sim_time_t clock_edge);
+int timing_check_hold(timing_model_t *tm, sim_time_t data_change_time, sim_time_t clock_edge);
 
 #endif

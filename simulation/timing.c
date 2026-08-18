@@ -68,8 +68,8 @@ int timing_check_setup(timing_model_t *tm, sim_time_t data_stable_time, sim_time
     return 0;
 }
 
-int timing_check_hold(timing_model_t *tm, sim_time_t data_stable_time, sim_time_t clock_edge) {
-    if (data_stable_time >= clock_edge + tm->flipflop_timing.hold_time) {
+int timing_check_hold(timing_model_t *tm, sim_time_t data_change_time, sim_time_t clock_edge) {
+    if (data_change_time >= clock_edge + tm->flipflop_timing.hold_time) {
         return 1;
     }
     return 0;
