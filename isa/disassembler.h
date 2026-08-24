@@ -7,6 +7,5 @@
 
 void disassemble_instruction(unsigned int word, char *output, int max_len);
 const char *get_register_name(int reg);
-const char *get_opcode_name(unsigned int opcode, unsigned int funct);
 
 #endif

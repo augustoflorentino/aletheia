@@ -42,7 +42,7 @@ SIMULATION_SRCS = simulation/scheduler.c \
                   simulation/timing.c simulation/waveform.c simulation/debugger.c \
                   simulation/simulator.c
 
-ISA_SRCS = isa/encoding.c isa/assembler.c isa/disassembler.c
+ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
 
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
            $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS)

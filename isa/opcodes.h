@@ -7,6 +7,7 @@
 #define OP_ORI      0x0D
 #define OP_XORI     0x0E
 #define OP_SLTI     0x0A
+#define OP_SLTIU    0x0B
 #define OP_LW       0x23
 #define OP_SW       0x2B
 #define OP_LB       0x20

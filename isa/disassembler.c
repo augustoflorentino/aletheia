@@ -1,41 +1,40 @@
 #include "disassembler.h"
+#include "optable.h"
 
-static void a_puts(char **o, const char *s) {
-    while (*s) {
-        **o = *s;
-        (*o)++;
-        s++;
-    }
+typedef struct {
+    char *pos;
+    char *end;
+} out_t;
+
+static void put_char(out_t *o, char c) {
+    if (o->pos < o->end) *o->pos++ = c;
 }
-static void a_putc(char **o, char c) {
-    **o = c;
-    (*o)++;
+
+static void put_str(out_t *o, const char *s) {
+    while (*s) put_char(o, *s++);
 }
-static void a_dec(char **o, int v) {
+
+static void put_dec(out_t *o, int v) {
     char tmp[12];
     int n = 0;
-    unsigned int u;
+    unsigned int u = (unsigned int)v;
     if (v < 0) {
-        a_putc(o, '-');
-        u = (unsigned int)(-(long)v);
-    } else u = (unsigned int)v;
-    if (u == 0) {
-        a_putc(o, '0');
-        return;
+        put_char(o, '-');
+        u = 0u - u;
     }
-    while (u > 0) {
+    do {
         tmp[n++] = (char)('0' + (u % 10u));
         u /= 10u;
-    }
-    while (n > 0) {
-        n--;
-        a_putc(o, tmp[n]);
-    }
+    } while (u > 0);
+    while (n > 0) put_char(o, tmp[--n]);
 }
-static void a_hex(char **o, unsigned int v, int digits) {
+
+static void put_hex(out_t *o, unsigned int v) {
     static const char hx[] = "0123456789abcdef";
-    int i;
-    for (i = digits - 1; i >= 0; i--) a_putc(o, hx[(v >> (i * 4)) & 0xF]);
+    int digits = 1;
+    while (digits < 8 && (v >> (digits * 4))) digits++;
+    put_str(o, "0x");
+    for (int i = digits - 1; i >= 0; i--) put_char(o, hx[(v >> (i * 4)) & 0xF]);
 }
 
 static const char *reg_names[32] = {
@@ -45,172 +44,84 @@ static const char *reg_names[32] = {
     "$t8", "$t9", "$k0", "$k1", "$gp", "$sp", "$fp", "$ra"};
 
 const char *get_register_name(int reg) {
-    if (reg >= 0 && reg < 32) {
-        return reg_names[reg];
-    }
+    if (reg >= 0 && reg < 32) return reg_names[reg];
     return "???";
 }
 
-const char *get_opcode_name(unsigned int opcode, unsigned int funct) {
-    if (opcode == OP_RTYPE) {
-        switch (funct) {
-            case FUNCT_ADD: return "add";
-            case FUNCT_ADDU: return "addu";
-            case FUNCT_SUB: return "sub";
-            case FUNCT_SUBU: return "subu";
-            case FUNCT_AND: return "and";
-            case FUNCT_OR: return "or";
-            case FUNCT_XOR: return "xor";
-            case FUNCT_NOR: return "nor";
-            case FUNCT_SLT: return "slt";
-            case FUNCT_SLTU: return "sltu";
-            case FUNCT_SLL: return "sll";
-            case FUNCT_SRL: return "srl";
-            case FUNCT_SRA: return "sra";
-            case FUNCT_SLLV: return "sllv";
-            case FUNCT_SRLV: return "srlv";
-            case FUNCT_SRAV: return "srav";
-            case FUNCT_JR: return "jr";
-            case FUNCT_JALR: return "jalr";
-            case FUNCT_MULT: return "mult";
-            case FUNCT_MULTU: return "multu";
-            case FUNCT_DIV: return "div";
-            case FUNCT_DIVU: return "divu";
-            case FUNCT_MFHI: return "mfhi";
-            case FUNCT_MFLO: return "mflo";
-            default: return "???";
-        }
-    }
+static void put_regs(out_t *o, unsigned int a, unsigned int b) {
+    put_str(o, reg_names[a]);
+    put_str(o, ", ");
+    put_str(o, reg_names[b]);
+}
 
-    switch (opcode) {
-        case OP_ADDI: return "addi";
-        case OP_ANDI: return "andi";
-        case OP_ORI: return "ori";
-        case OP_XORI: return "xori";
-        case OP_SLTI: return "slti";
-        case OP_LW: return "lw";
-        case OP_SW: return "sw";
-        case OP_LB: return "lb";
-        case OP_SB: return "sb";
-        case OP_BEQ: return "beq";
-        case OP_BNE: return "bne";
-        case OP_J: return "j";
-        case OP_JAL: return "jal";
-        case OP_LUI: return "lui";
-        case OP_RETI: return "reti";
-        case OP_HALT: return "halt";
-        default: return "???";
+static void put_operands(out_t *o, const op_info_t *op, const instruction_t *in) {
+    switch (op->format) {
+        case FMT_R3:
+            put_regs(o, in->rd, in->rs);
+            put_str(o, ", ");
+            put_str(o, reg_names[in->rt]);
+            break;
+        case FMT_SHIFT:
+            put_regs(o, in->rd, in->rt);
+            put_str(o, ", ");
+            put_dec(o, (int)in->shamt);
+            break;
+        case FMT_SHIFTV:
+            put_regs(o, in->rd, in->rt);
+            put_str(o, ", ");
+            put_str(o, reg_names[in->rs]);
+            break;
+        case FMT_JR: put_str(o, reg_names[in->rs]); break;
+        case FMT_JALR: put_regs(o, in->rd, in->rs); break;
+        case FMT_IMM_S:
+            put_regs(o, in->rt, in->rs);
+            put_str(o, ", ");
+            put_dec(o, sign_extend_16(in->immediate));
+            break;
+        case FMT_IMM_U:
+            put_regs(o, in->rt, in->rs);
+            put_str(o, ", ");
+            put_hex(o, in->immediate);
+            break;
+        case FMT_LUI:
+            put_str(o, reg_names[in->rt]);
+            put_str(o, ", ");
+            put_hex(o, in->immediate);
+            break;
+        case FMT_BRANCH:
+            put_regs(o, in->rs, in->rt);
+            put_str(o, ", ");
+            put_dec(o, sign_extend_16(in->immediate));
+            break;
+        case FMT_JUMP: put_hex(o, in->address); break;
+        case FMT_MEM:
+            put_str(o, reg_names[in->rt]);
+            put_str(o, ", ");
+            put_dec(o, sign_extend_16(in->immediate));
+            put_char(o, '(');
+            put_str(o, reg_names[in->rs]);
+            put_char(o, ')');
+            break;
+        default: break;
     }
 }
 
 void disassemble_instruction(unsigned int word, char *output, int max_len) {
-    instruction_t instr;
-    decode_instruction(word, &instr);
-    (void)max_len;
-
-    const char *name = get_opcode_name(instr.opcode, instr.funct);
-    char *o = output;
+    if (max_len <= 0) return;
+    out_t o = {output, output + max_len - 1};
+    const op_info_t *op = optable_find_word(word);
 
     if (word == 0) {
-        a_puts(&o, "nop");
-        *o = '\0';
-        return;
+        put_str(&o, "nop");
+    } else if (!op) {
+        put_str(&o, ".word ");
+        put_hex(&o, word);
+    } else {
+        instruction_t in;
+        decode_instruction(word, &in);
+        put_str(&o, op->name);
+        if (op->format != FMT_NONE) put_char(&o, ' ');
+        put_operands(&o, op, &in);
     }
-
-    if (instr.opcode == OP_RETI || instr.opcode == OP_HALT) {
-        a_puts(&o, name);
-        *o = '\0';
-        return;
-    }
-
-    switch (instr.type) {
-        case INSTR_TYPE_R:
-            if (instr.funct == FUNCT_JR) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rs));
-            } else if (instr.funct == FUNCT_JALR) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rs));
-            } else if (instr.funct == FUNCT_SLL || instr.funct == FUNCT_SRL || instr.funct == FUNCT_SRA) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt));
-                a_puts(&o, ", ");
-                a_dec(&o, (int)instr.shamt);
-            } else if (instr.funct == FUNCT_MFHI || instr.funct == FUNCT_MFLO) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd));
-            } else if (instr.funct == FUNCT_MULT || instr.funct == FUNCT_MULTU ||
-                       instr.funct == FUNCT_DIV || instr.funct == FUNCT_DIVU) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rs));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt));
-            } else {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rd));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rs));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt));
-            }
-            break;
-
-        case INSTR_TYPE_I:
-            if (instr.opcode == OP_LW || instr.opcode == OP_SW ||
-                instr.opcode == OP_LB || instr.opcode == OP_SB) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt));
-                a_puts(&o, ", ");
-                a_dec(&o, sign_extend_16(instr.immediate));
-                a_putc(&o, '(');
-                a_puts(&o, get_register_name(instr.rs));
-                a_putc(&o, ')');
-            } else if (instr.opcode == OP_BEQ || instr.opcode == OP_BNE) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rs));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rt));
-                a_puts(&o, ", ");
-                a_dec(&o, sign_extend_16(instr.immediate));
-            } else if (instr.opcode == OP_LUI) {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt));
-                a_puts(&o, ", 0x");
-                a_hex(&o, instr.immediate, 4);
-            } else {
-                a_puts(&o, name);
-                a_putc(&o, ' ');
-                a_puts(&o, get_register_name(instr.rt));
-                a_puts(&o, ", ");
-                a_puts(&o, get_register_name(instr.rs));
-                a_puts(&o, ", ");
-                a_dec(&o, sign_extend_16(instr.immediate));
-            }
-            break;
-
-        case INSTR_TYPE_J:
-            a_puts(&o, name);
-            a_puts(&o, " 0x");
-            a_hex(&o, instr.address << 2, 8);
-            break;
-
-        default:
-            a_puts(&o, ".word 0x");
-            a_hex(&o, word, 8);
-            break;
-    }
-    *o = '\0';
+    *o.pos = '\0';
 }

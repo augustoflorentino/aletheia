@@ -6,53 +6,6 @@
 #include "simulation/simulation.h"
 #include "isa/isa.h"
 
-int assembler_assemble_file(assembler_t *as, const char *filename,
-                            unsigned int *output, int max_words) {
-    FILE *f = fopen(filename, "r");
-    if (!f) {
-        return -1;
-    }
-
-    char line[MAX_LINE_LEN];
-    int word_count = 0;
-
-    while (fgets(line, MAX_LINE_LEN, f) && word_count < max_words) {
-        char *p = line;
-        while (*p == ' ' || *p == '\t') p++;
-
-        if (*p == '\0' || *p == '\n' || *p == '#') {
-            continue;
-        }
-
-        if (strncmp(p, ".org", 4) == 0) {
-            int target = (int)strtoul(p + 4, NULL, 0);
-            while (word_count < target && word_count < max_words) {
-                output[word_count++] = 0;
-            }
-            as->current_address = (unsigned int)word_count * 4;
-            continue;
-        }
-
-        char *colon = strchr(p, ':');
-        if (colon) {
-            *colon = '\0';
-            assembler_add_label(as, p, as->current_address);
-            p = colon + 1;
-            while (*p == ' ' || *p == '\t') p++;
-            if (*p == '\0' || *p == '\n') {
-                continue;
-            }
-        }
-
-        unsigned int word = assembler_assemble_line(as, p);
-        output[word_count++] = word;
-        as->current_address += 4;
-    }
-
-    fclose(f);
-    return word_count;
-}
-
 static void to_bits_32(unsigned int n, bit *bits) {
     bits[0] = (n >> 0) & 1;
     bits[1] = (n >> 1) & 1;
@@ -236,7 +189,7 @@ int main(int argc, char **argv) {
         unsigned int program_words[256];
         int count = assembler_assemble_file(&as, asm_file, program_words, 256);
         if (count < 0) {
-            printf("Failed to load file: %s\n", asm_file);
+            fprintf(stderr, "%s\n", as.error);
             return 1;
         }
         printf("Instructions loaded: %d\n\n", count);
