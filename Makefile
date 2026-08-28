@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -MMD -MP -I.
+CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -I.
 LDFLAGS =
 
 CORE_SRCS = core/gates/and.c core/gates/or.c core/gates/not.c core/gates/xor.c \
@@ -47,7 +47,8 @@ ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/a
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
            $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS)
 
-OBJS = $(ALL_SRCS:.c=.o)
+OBJS = $(patsubst %.c,build/obj/%.o,$(ALL_SRCS))
+MAIN_OBJ = build/obj/main.o
 
 TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
         tests/test_pipeline tests/test_interrupt tests/test_cosim \
@@ -57,36 +58,37 @@ TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
 
 all: aletheia
 
-aletheia: $(OBJS) main.o
-	$(CC) $(LDFLAGS) -o $@ $^
+aletheia: $(MAIN_OBJ) $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(MAIN_OBJ) $(OBJS)
 
-main.o: main.c
-	$(CC) $(CFLAGS) -c main.c -o main.o
-
-%.o: %.c
+build/obj/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tests/%: tests/%.c tests/test.h tests/refmodel.h $(OBJS)
+build/tests/%: tests/%.c tests/test.h tests/refmodel.h $(OBJS)
+	@mkdir -p build/tests
 	$(CC) $(CFLAGS) $< $(OBJS) $(LDFLAGS) -o $@
 
-test: check-compliance $(TESTS)
+TEST_BINS = $(patsubst tests/%,build/tests/%,$(TESTS))
+
+test: check-compliance $(TEST_BINS)
 	@echo "Running test suite..."
-	@rc=0; for t in $(TESTS); do ./$$t || rc=1; done; \
+	@rc=0; for t in $(TEST_BINS); do ./$$t || rc=1; done; \
 	if [ $$rc -eq 0 ]; then echo "ALL TESTS PASSED"; else echo "TESTS FAILED"; fi; exit $$rc
 
 test-san:
 	@echo "Running tests under gcc UBSan (-fsanitize=undefined)..."
-	@rc=0; for t in $(TESTS); do \
-	  $(CC) -Wall -Wextra -Werror -I. -fsanitize=undefined -fno-sanitize-recover=all -g \
-	    $$t.c $(ALL_SRCS) -o $$t.san 2>/dev/null && ./$$t.san >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
-	  rm -f $$t.san; \
+	@mkdir -p build; rc=0; for t in $(TESTS); do \
+	  $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -I. -fsanitize=undefined -fno-sanitize-recover=all -g \
+	    $$t.c $(ALL_SRCS) -o build/san.bin 2>/dev/null && ./build/san.bin >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
+	  rm -f build/san.bin; \
 	done; \
 	if [ $$rc -eq 0 ]; then echo "UBSAN CLEAN"; else echo "UBSAN ISSUES"; fi; exit $$rc
 
 clean:
-	rm -f $(OBJS) main.o aletheia $(TESTS) tests/*.san $(ALL_SRCS:.c=.d) $(TESTS:=.d) main.d
+	rm -rf build aletheia
 
--include $(ALL_SRCS:.c=.d) main.d
+-include $(OBJS:.o=.d) $(MAIN_OBJ:.o=.d) $(TEST_BINS:=.d)
 
 check-compliance:
 	@echo "Checking for forbidden constructs outside simulation/..."
@@ -96,7 +98,7 @@ check-compliance:
 	@! grep -rn --include="*.c" -E '\bswitch\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
 	@echo "Compliance check complete"
 
-FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h))
+FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h tests/*.h include/aletheia/*.h))
 
 format:
 	@clang-format -i $(FORMAT_SRCS)
