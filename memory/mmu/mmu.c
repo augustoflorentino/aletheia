@@ -3,11 +3,11 @@
 #include "../../core/mux/mux.h"
 
 static void extract_vpn(bit *vaddr, bit *vpn) {
-    vpn[0] = vaddr[12]; vpn[1] = vaddr[13]; vpn[2] = vaddr[14]; vpn[3] = vaddr[15];
-    vpn[4] = vaddr[16]; vpn[5] = vaddr[17]; vpn[6] = vaddr[18]; vpn[7] = vaddr[19];
-    vpn[8] = vaddr[20]; vpn[9] = vaddr[21]; vpn[10] = vaddr[22]; vpn[11] = vaddr[23];
-    vpn[12] = vaddr[24]; vpn[13] = vaddr[25]; vpn[14] = vaddr[26]; vpn[15] = vaddr[27];
-    vpn[16] = vaddr[28]; vpn[17] = vaddr[29]; vpn[18] = vaddr[30]; vpn[19] = vaddr[31];
+    vpn[0] = vaddr[4]; vpn[1] = vaddr[5]; vpn[2] = vaddr[6]; vpn[3] = vaddr[7];
+    vpn[4] = vaddr[8]; vpn[5] = vaddr[9]; vpn[6] = vaddr[10]; vpn[7] = vaddr[11];
+    vpn[8] = vaddr[12]; vpn[9] = vaddr[13]; vpn[10] = vaddr[14]; vpn[11] = vaddr[15];
+    vpn[12] = vaddr[16]; vpn[13] = vaddr[17]; vpn[14] = vaddr[18]; vpn[15] = vaddr[19];
+    vpn[16] = vaddr[20]; vpn[17] = vaddr[21]; vpn[18] = vaddr[22]; vpn[19] = vaddr[23];
 }
 
 void mmu_init(mmu_t *m) {
@@ -15,6 +15,7 @@ void mmu_init(mmu_t *m) {
     page_table_init(&m->pt);
     m->fill = 0;
     m->pt_fill = 0;
+    m->pt_valid = 0;
 }
 
 void mmu_reset(mmu_t *m) {
@@ -22,6 +23,7 @@ void mmu_reset(mmu_t *m) {
     page_table_reset(&m->pt);
     m->fill = 0;
     m->pt_fill = 0;
+    m->pt_valid = 0;
 }
 
 void mmu_set_vaddr(mmu_t *m, bit *vaddr) {
@@ -69,17 +71,23 @@ void mmu_set_pt_fill(mmu_t *m, bit fill) {
     m->pt_fill = fill;
 }
 
+void mmu_set_pt_valid(mmu_t *m, bit valid) {
+    m->pt_valid = valid;
+}
+
 void mmu_clock_fall(mmu_t *m) {
     bit vpn[20];
     extract_vpn(m->vaddr, vpn);
     tlb_set_vpn(&m->tlb, vpn);
     tlb_set_pfn(&m->tlb, m->fill_pfn);
     tlb_set_write(&m->tlb, m->fill);
+    tlb_set_flush(&m->tlb, m->pt_fill);
     tlb_clock_fall(&m->tlb);
 
     page_table_set_vpn(&m->pt, vpn);
     page_table_set_pfn(&m->pt, m->pt_fill_pfn);
     page_table_set_write(&m->pt, m->pt_fill);
+    page_table_set_present(&m->pt, m->pt_valid);
     page_table_clock_fall(&m->pt);
 }
 
@@ -121,20 +129,23 @@ void mmu_propagate(mmu_t *m) {
     pfn[18] = mux2(m->pt.pfn_out[18], m->tlb.pfn_out[18], hit);
     pfn[19] = mux2(m->pt.pfn_out[19], m->tlb.pfn_out[19], hit);
 
-    m->paddr[0] = m->vaddr[0]; m->paddr[1] = m->vaddr[1]; m->paddr[2] = m->vaddr[2];
-    m->paddr[3] = m->vaddr[3]; m->paddr[4] = m->vaddr[4]; m->paddr[5] = m->vaddr[5];
-    m->paddr[6] = m->vaddr[6]; m->paddr[7] = m->vaddr[7]; m->paddr[8] = m->vaddr[8];
-    m->paddr[9] = m->vaddr[9]; m->paddr[10] = m->vaddr[10]; m->paddr[11] = m->vaddr[11];
-
-    m->paddr[12] = pfn[0]; m->paddr[13] = pfn[1]; m->paddr[14] = pfn[2];
-    m->paddr[15] = pfn[3]; m->paddr[16] = pfn[4]; m->paddr[17] = pfn[5];
-    m->paddr[18] = pfn[6]; m->paddr[19] = pfn[7]; m->paddr[20] = pfn[8];
-    m->paddr[21] = pfn[9]; m->paddr[22] = pfn[10]; m->paddr[23] = pfn[11];
-    m->paddr[24] = pfn[12]; m->paddr[25] = pfn[13]; m->paddr[26] = pfn[14];
-    m->paddr[27] = pfn[15]; m->paddr[28] = pfn[16]; m->paddr[29] = pfn[17];
-    m->paddr[30] = pfn[18]; m->paddr[31] = pfn[19];
-
-    m->tlb_hit = hit;
-    m->translated = OR(hit, m->pt.present_out);
+    m->paddr[0] = m->vaddr[0]; m->paddr[1] = m->vaddr[1];
+    m->paddr[2] = m->vaddr[2]; m->paddr[3] = m->vaddr[3];
+    m->paddr[4] = pfn[0]; m->paddr[5] = pfn[1]; m->paddr[6] = pfn[2]; m->paddr[7] = pfn[3];
+    m->paddr[8] = pfn[4]; m->paddr[9] = pfn[5]; m->paddr[10] = pfn[6]; m->paddr[11] = pfn[7];
+    m->paddr[12] = pfn[8]; m->paddr[13] = pfn[9]; m->paddr[14] = pfn[10]; m->paddr[15] = pfn[11];
+    m->paddr[16] = pfn[12]; m->paddr[17] = pfn[13]; m->paddr[18] = pfn[14]; m->paddr[19] = pfn[15];
+    m->paddr[20] = pfn[16]; m->paddr[21] = pfn[17]; m->paddr[22] = pfn[18]; m->paddr[23] = pfn[19];
+    m->paddr[24] = 0; m->paddr[25] = 0; m->paddr[26] = 0; m->paddr[27] = 0;
+    m->paddr[28] = 0; m->paddr[29] = 0; m->paddr[30] = 0; m->paddr[31] = 0;
+    bit top_zero = NOT(OR(OR(OR(m->vaddr[24], m->vaddr[25]), OR(m->vaddr[26], m->vaddr[27])),
+                          OR(OR(m->vaddr[28], m->vaddr[29]), OR(m->vaddr[30], m->vaddr[31]))));
+    bit vpn_in_table = NOT(OR(OR(OR(OR(vpn[4], vpn[5]), OR(vpn[6], vpn[7])),
+                                 OR(OR(vpn[8], vpn[9]), OR(vpn[10], vpn[11]))),
+                              OR(OR(OR(vpn[12], vpn[13]), OR(vpn[14], vpn[15])),
+                                 OR(OR(vpn[16], vpn[17]), OR(vpn[18], vpn[19])))));
+    m->pt_hit = AND(AND(m->pt.present_out, vpn_in_table), top_zero);
+    m->tlb_hit = AND(hit, top_zero);
+    m->translated = OR(m->tlb_hit, m->pt_hit);
     m->fault = NOT(m->translated);
 }

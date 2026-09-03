@@ -1,4 +1,5 @@
 #include "board.h"
+#include "memsys.h"
 #include "../core/gates/gates.h"
 #include "../core/mux/mux.h"
 #include "../cpu/alu/adder.h"
@@ -182,8 +183,15 @@ void board_pipe_init(board_t *b) {
     hazard_init(&b->haz);
     pc_reset(&b->pc);
     regfile_reset(&b->regs);
-    sram256_reset(&b->ram);
+    ram_reset(&b->ram);
+    dff_reset(&b->pipe_halt_seen);
+    dff_reset(&b->pipe_halt_drain);
     b->halt = 0;
+}
+
+static void pzext26(bit *addr, bit *out) {
+    pcopy32(addr, out);
+    out[26] = 0; out[27] = 0; out[28] = 0; out[29] = 0; out[30] = 0; out[31] = 0;
 }
 
 void board_step_pipe(board_t *b) {
@@ -210,22 +218,27 @@ void board_step_pipe(board_t *b) {
     bit em_memwrite = b->ex_mem.mem_write.q;
     bit em_regwrite = b->ex_mem.reg_write.q;
     bit em_valid = b->ex_mem.valid.q;
-    bit maddr[8];
-    maddr[0]=em_alu[0]; maddr[1]=em_alu[1]; maddr[2]=em_alu[2]; maddr[3]=em_alu[3];
-    maddr[4]=em_alu[4]; maddr[5]=em_alu[5]; maddr[6]=em_alu[6]; maddr[7]=em_alu[7];
-    sram256_set_addr(&b->ram, maddr);
-    sram256_set_data(&b->ram, em_rt);
-    sram256_set_write(&b->ram, AND(AND(em_memwrite, em_valid), run));
-    sram256_set_cs(&b->ram, 1);
-    sram256_propagate(&b->ram);
-    bit em_memdata[32];
-    sram256_read(&b->ram, em_memdata);
+    memsys_irq(b);
+    mem_port_t port;
+    memsys_probe(b, em_alu, em_rt, AND(b->ex_mem.mem_read.q, em_valid), AND(em_memwrite, em_valid), &port);
+    bit em_pc[32], em_epc[32], em_carry[33];
+    pread32(b->ex_mem.pc, em_pc);
+    bit all_ones[32] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    adder_32(em_pc, all_ones, em_epc, em_carry);
+    exc_outcome_t exc;
+    board_exceptions(b, em_epc, port.fault, AND(b->ex_mem.undef.q, em_valid), em_valid,
+                     AND(b->ex_mem.reti.q, em_valid), run, &exc);
+    memsys_commit(b, &port, exc.ok);
+    bit mem_redirect = OR(exc.take, exc.reti);
+    bit mem_target[32];
+    mux2_32(b->exc.return_addr, b->exc.handler_addr, exc.take, mem_target);
+
     pset32(b->mem_wb.alu_result, em_alu);
-    pset32(b->mem_wb.mem_data, em_memdata);
+    pset32(b->mem_wb.mem_data, port.rdata);
     pset5(b->mem_wb.write_reg, em_wreg);
     b->mem_wb.mem_to_reg.d = b->ex_mem.mem_to_reg.q;
     b->mem_wb.reg_write.d = em_regwrite;
-    b->mem_wb.valid.d = em_valid;
+    b->mem_wb.valid.d = AND(em_valid, exc.ok);
 
     bit ix_pc[32], ix_rsdata[32], ix_rtdata[32], ix_imm[32], ix_rs[5], ix_rt[5], ix_rd[5], ix_aluop[4];
     pread32(b->id_ex.pc, ix_pc);
@@ -258,20 +271,27 @@ void board_step_pipe(board_t *b) {
     mux2_32(ix_rtdata, wb_data, fb[0], tB);
     mux2_32(tB, em_alu, fb[1], opB);
 
-    bit alu_b[32];
-    mux2_32(opB, ix_imm, ix_alusrc, alu_b);
-    bit base0 = OR(ix_aluop[0], AND(ix_aluop[2], ix_aluop[1]));
-    bit base1 = ix_aluop[1];
-    bit ctrl[3];
-    ctrl[0] = mux2(base0, 1, ix_branch);
-    ctrl[1] = mux2(base1, 0, ix_branch);
-    ctrl[2] = 0;
-    bit ex_result[32];
+    alu_operand_sel_t sel;
+    sel.alu_src = ix_alusrc;
+    sel.imm_zero_ext = b->id_ex.imm_zero_ext.q;
+    sel.shift_rt = b->id_ex.shift_rt.q;
+    sel.shift_shamt = b->id_ex.shift_shamt.q;
+    sel.lui = b->id_ex.lui.q;
+    bit ix_shamt[5] = {ix_imm[6], ix_imm[7], ix_imm[8], ix_imm[9], ix_imm[10]};
+    bit alu_a[32], alu_b[32];
+    alu_select_operands(&sel, ix_imm, ix_shamt, opA, opB, alu_a, alu_b);
+    bit alu_result[32];
     alu_flags_t flags;
-    alu_execute(opA, alu_b, ctrl, ex_result, &flags);
-    bit branch_taken = AND(AND(ix_branch, flags.zero), ix_valid);
-    bit btarget[32], bcarry[33];
+    alu_execute_ext(alu_a, alu_b, ix_aluop, alu_result, &flags);
+    bit ex_result[32];
+    mux2_32(alu_result, ix_pc, b->id_ex.link.q, ex_result);
+    bit taken_cond = XOR(flags.zero, b->id_ex.branch_ne.q);
+    bit branch_taken = AND(AND(ix_branch, taken_cond), ix_valid);
+    bit jr_taken = AND(b->id_ex.jr.q, ix_valid);
+    bit ex_redirect = OR(branch_taken, jr_taken);
+    bit btarget[32], bcarry[33], ex_target[32];
     adder_32(ix_pc, ix_imm, btarget, bcarry);
+    mux2_32(btarget, opA, jr_taken, ex_target);
 
     pset32(b->ex_mem.alu_result, ex_result);
     pset32(b->ex_mem.rt_data, opB);
@@ -282,6 +302,9 @@ void board_step_pipe(board_t *b) {
     b->ex_mem.reg_write.d = b->id_ex.reg_write.q;
     b->ex_mem.zero_flag.d = flags.zero;
     b->ex_mem.valid.d = ix_valid;
+    b->ex_mem.undef.d = b->id_ex.undef.q;
+    b->ex_mem.reti.d = b->id_ex.reti.q;
+    pset32(b->ex_mem.pc, ix_pc);
 
     bit ii_pc[32], ii_instr[32];
     pread32(b->if_id.pc, ii_pc);
@@ -298,18 +321,16 @@ void board_step_pipe(board_t *b) {
     bit id_imm[32];
     psext16(b->dec.imm, id_imm);
     bit id_wreg[5];
-    id_wreg[0] = mux2(b->dec.rt[0], b->dec.rd[0], b->dec.reg_dst);
-    id_wreg[1] = mux2(b->dec.rt[1], b->dec.rd[1], b->dec.reg_dst);
-    id_wreg[2] = mux2(b->dec.rt[2], b->dec.rd[2], b->dec.reg_dst);
-    id_wreg[3] = mux2(b->dec.rt[3], b->dec.rd[3], b->dec.reg_dst);
-    id_wreg[4] = mux2(b->dec.rt[4], b->dec.rd[4], b->dec.reg_dst);
+    id_wreg[0] = mux2(mux2(b->dec.rt[0], b->dec.rd[0], b->dec.reg_dst), 1, b->dec.jal);
+    id_wreg[1] = mux2(mux2(b->dec.rt[1], b->dec.rd[1], b->dec.reg_dst), 1, b->dec.jal);
+    id_wreg[2] = mux2(mux2(b->dec.rt[2], b->dec.rd[2], b->dec.reg_dst), 1, b->dec.jal);
+    id_wreg[3] = mux2(mux2(b->dec.rt[3], b->dec.rd[3], b->dec.reg_dst), 1, b->dec.jal);
+    id_wreg[4] = mux2(mux2(b->dec.rt[4], b->dec.rd[4], b->dec.reg_dst), 1, b->dec.jal);
 
     hazard_set_id_ex_mem_read(&b->haz, AND(ix_memread, ix_valid));
     hazard_set_id_ex_rt(&b->haz, ix_rt);
     hazard_set_if_id_rs(&b->haz, b->dec.rs);
     hazard_set_if_id_rt(&b->haz, b->dec.rt);
-    hazard_set_ex_mem_branch(&b->haz, 0);
-    hazard_set_ex_mem_zero(&b->haz, 0);
     hazard_propagate(&b->haz);
     bit stall = hazard_get_stall(&b->haz);
 
@@ -328,55 +349,70 @@ void board_step_pipe(board_t *b) {
     b->id_ex.mem_to_reg.d = b->dec.mem_to_reg;
     b->id_ex.reg_write.d = b->dec.reg_write;
     b->id_ex.branch.d = b->dec.branch;
+    b->id_ex.branch_ne.d = b->dec.branch_ne;
+    b->id_ex.imm_zero_ext.d = b->dec.imm_zero_ext;
+    b->id_ex.shift_rt.d = b->dec.shift_rt;
+    b->id_ex.shift_shamt.d = b->dec.shift_shamt;
+    b->id_ex.lui.d = b->dec.lui;
+    b->id_ex.link.d = b->dec.link;
+    b->id_ex.jr.d = b->dec.jr;
+    b->id_ex.undef.d = b->dec.undefined;
+    b->id_ex.reti.d = b->dec.reti;
     b->id_ex.valid.d = ii_valid;
 
     pc_propagate(&b->pc);
-    bit pcaddr[8];
-    pcaddr[0]=b->pc.reg.data_out[0]; pcaddr[1]=b->pc.reg.data_out[1];
-    pcaddr[2]=b->pc.reg.data_out[2]; pcaddr[3]=b->pc.reg.data_out[3];
-    pcaddr[4]=b->pc.reg.data_out[4]; pcaddr[5]=b->pc.reg.data_out[5];
-    pcaddr[6]=b->pc.reg.data_out[6]; pcaddr[7]=b->pc.reg.data_out[7];
-    rom256_set_addr(&b->rom, pcaddr);
-    rom256_set_cs(&b->rom, 1);
-    rom256_propagate(&b->rom);
     bit if_instr[32];
-    rom256_read(&b->rom, if_instr);
+    rom1k_fetch(&b->rom, b->pc.reg.data_out, if_instr);
     bit one_w[32] = {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     bit pc_plus1[32], pc_carry[33];
     adder_32(b->pc.reg.data_out, one_w, pc_plus1, pc_carry);
+    bit is_halt = AND(AND(b->dec.opcode[0], b->dec.opcode[1]),
+                      AND(AND(b->dec.opcode[2], b->dec.opcode[3]),
+                          AND(b->dec.opcode[4], b->dec.opcode[5])));
+    bit halt_now = AND(AND(ii_valid, is_halt), NOR(ex_redirect, mem_redirect));
+    bit stop_fetch = OR(b->pipe_halt_seen.q, halt_now);
+    b->pipe_halt_seen.d = AND(stop_fetch, NOT(mem_redirect));
+    b->pipe_halt_drain.d = AND(b->pipe_halt_seen.q, NOT(mem_redirect));
+
+    bit id_jump = AND(AND(ii_valid, b->dec.jump), AND(NOT(ex_redirect), NOT(stall)));
+    bit jtarget[32];
+    pzext26(b->dec.addr, jtarget);
+
     pset32(b->if_id.pc, pc_plus1);
     pset32(b->if_id.instruction, if_instr);
-    b->if_id.valid.d = run;
+    b->if_id.valid.d = AND(run, NOT(stop_fetch));
 
-    bit halt_now = AND(ii_valid, AND(AND(b->dec.opcode[0], b->dec.opcode[1]),
-                       AND(AND(b->dec.opcode[2], b->dec.opcode[3]),
-                           AND(b->dec.opcode[4], b->dec.opcode[5]))));
-
-    if_id_set_stall(&b->if_id, AND(stall, NOT(branch_taken)));
-    if_id_set_flush(&b->if_id, branch_taken);
+    if_id_set_stall(&b->if_id, AND(stall, NOT(ex_redirect)));
+    if_id_set_flush(&b->if_id, OR(OR(ex_redirect, id_jump), mem_redirect));
     id_ex_set_stall(&b->id_ex, 0);
-    id_ex_set_flush(&b->id_ex, OR(stall, branch_taken));
-    ex_mem_set_flush(&b->ex_mem, 0);
+    id_ex_set_flush(&b->id_ex, OR(OR(stall, ex_redirect), mem_redirect));
+    ex_mem_set_flush(&b->ex_mem, mem_redirect);
 
-    bit next_pc[32];
-    mux2_32(pc_plus1, btarget, branch_taken, next_pc);
-    bit pc_load = AND(OR(NOT(stall), branch_taken), run);
+    bit seq_pc[32], ex_pc[32], next_pc[32];
+    mux2_32(pc_plus1, jtarget, id_jump, seq_pc);
+    mux2_32(seq_pc, ex_target, ex_redirect, ex_pc);
+    mux2_32(ex_pc, mem_target, mem_redirect, next_pc);
+    bit pc_load = OR(AND(OR(NOT(stall), ex_redirect), AND(run, NOT(stop_fetch))), AND(mem_redirect, run));
     pc_set_load_data(&b->pc, next_pc);
     pc_set_load(&b->pc, pc_load);
     pc_set_increment(&b->pc, 0);
 
-    b->halt = OR(b->halt, halt_now);
+    b->halt = OR(b->halt, b->pipe_halt_drain.q);
 
+    dff_clock_fall(&b->pipe_halt_seen);
+    dff_clock_fall(&b->pipe_halt_drain);
+    dff_clock_rise(&b->pipe_halt_seen);
+    dff_clock_rise(&b->pipe_halt_drain);
     if_id_clock_fall(&b->if_id);
     id_ex_clock_fall(&b->id_ex);
     ex_mem_clock_fall(&b->ex_mem);
     mem_wb_clock_fall(&b->mem_wb);
     pc_clock_fall(&b->pc);
-    sram256_clock_fall(&b->ram);
+    memsys_clock_fall(b);
     if_id_clock_rise(&b->if_id);
     id_ex_clock_rise(&b->id_ex);
     ex_mem_clock_rise(&b->ex_mem);
     mem_wb_clock_rise(&b->mem_wb);
     pc_clock_rise(&b->pc);
-    sram256_clock_rise(&b->ram);
+    memsys_clock_rise(b);
 }

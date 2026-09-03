@@ -39,10 +39,23 @@ void rom256_reset(rom_256x32_t *rom) {
     rom256_init(rom);
 }
 
-void rom256_load_word(rom_256x32_t *rom, int index, bit *data) {
-    int chip = (index >> 4) & 15;
-    int offset = index & 15;
-    rom_load_word(&rom->chips[chip], offset, data);
+void rom256_program(rom_256x32_t *rom, bit *a, bit en, bit *data) {
+    rom_program(&rom->chips[0], a, AND(AND(AND(NOT(a[4]), NOT(a[5])), AND(NOT(a[6]), NOT(a[7]))), en), data);
+    rom_program(&rom->chips[1], a, AND(AND(AND(a[4], NOT(a[5])), AND(NOT(a[6]), NOT(a[7]))), en), data);
+    rom_program(&rom->chips[2], a, AND(AND(AND(NOT(a[4]), a[5]), AND(NOT(a[6]), NOT(a[7]))), en), data);
+    rom_program(&rom->chips[3], a, AND(AND(AND(a[4], a[5]), AND(NOT(a[6]), NOT(a[7]))), en), data);
+    rom_program(&rom->chips[4], a, AND(AND(AND(NOT(a[4]), NOT(a[5])), AND(a[6], NOT(a[7]))), en), data);
+    rom_program(&rom->chips[5], a, AND(AND(AND(a[4], NOT(a[5])), AND(a[6], NOT(a[7]))), en), data);
+    rom_program(&rom->chips[6], a, AND(AND(AND(NOT(a[4]), a[5]), AND(a[6], NOT(a[7]))), en), data);
+    rom_program(&rom->chips[7], a, AND(AND(AND(a[4], a[5]), AND(a[6], NOT(a[7]))), en), data);
+    rom_program(&rom->chips[8], a, AND(AND(AND(NOT(a[4]), NOT(a[5])), AND(NOT(a[6]), a[7])), en), data);
+    rom_program(&rom->chips[9], a, AND(AND(AND(a[4], NOT(a[5])), AND(NOT(a[6]), a[7])), en), data);
+    rom_program(&rom->chips[10], a, AND(AND(AND(NOT(a[4]), a[5]), AND(NOT(a[6]), a[7])), en), data);
+    rom_program(&rom->chips[11], a, AND(AND(AND(a[4], a[5]), AND(NOT(a[6]), a[7])), en), data);
+    rom_program(&rom->chips[12], a, AND(AND(AND(NOT(a[4]), NOT(a[5])), AND(a[6], a[7])), en), data);
+    rom_program(&rom->chips[13], a, AND(AND(AND(a[4], NOT(a[5])), AND(a[6], a[7])), en), data);
+    rom_program(&rom->chips[14], a, AND(AND(AND(NOT(a[4]), a[5]), AND(a[6], a[7])), en), data);
+    rom_program(&rom->chips[15], a, AND(AND(AND(a[4], a[5]), AND(a[6], a[7])), en), data);
 }
 
 void rom256_set_addr(rom_256x32_t *rom, bit *addr) {

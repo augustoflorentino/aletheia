@@ -259,7 +259,7 @@ void dma_clock_fall(dma_controller_t *dma) {
 
     bit x_enabled = dma->control[0].q;
     bit x_cnt_nz = OR(OR(OR(OR(dma->count[0].q, dma->count[1].q), OR(dma->count[2].q, dma->count[3].q)), OR(OR(dma->count[4].q, dma->count[5].q), OR(dma->count[6].q, dma->count[7].q))), OR(OR(OR(dma->count[8].q, dma->count[9].q), OR(dma->count[10].q, dma->count[11].q)), OR(OR(dma->count[12].q, dma->count[13].q), OR(dma->count[14].q, dma->count[15].q))));
-    bit xfer = AND(dma->bus_grant, AND(x_enabled, x_cnt_nz));
+    bit xfer = AND(AND(dma->bus_grant, dma->dreq), AND(x_enabled, x_cnt_nz));
     bit src_plus1[16]; bit srcc[17]; srcc[0] = 1;
     src_plus1[0] = XOR(dma->src_addr[0].q, srcc[0]); srcc[1] = AND(dma->src_addr[0].q, srcc[0]);
     src_plus1[1] = XOR(dma->src_addr[1].q, srcc[1]); srcc[2] = AND(dma->src_addr[1].q, srcc[1]);
@@ -456,8 +456,12 @@ void dma_propagate(dma_controller_t *dma) {
 
     bit enabled = dma->control[0].q;
     dma->bus_request = AND(enabled, dma->dreq);
-    dma->dack = AND(dma->bus_grant, enabled);
-    dma->tc = dma->status[2].q;
+    dma->dack = AND(dma->bus_grant, dma->bus_request);
+    bit cnt_nz = OR(OR(OR(OR(dma->count[0].q, dma->count[1].q), OR(dma->count[2].q, dma->count[3].q)),
+                       OR(OR(dma->count[4].q, dma->count[5].q), OR(dma->count[6].q, dma->count[7].q))),
+                    OR(OR(OR(dma->count[8].q, dma->count[9].q), OR(dma->count[10].q, dma->count[11].q)),
+                       OR(OR(dma->count[12].q, dma->count[13].q), OR(dma->count[14].q, dma->count[15].q))));
+    dma->tc = NOT(cnt_nz);
     dma->mem_read = AND(dma->dack, dma->control[1].q);
     dma->mem_write = AND(dma->dack, NOT(dma->control[1].q));
 

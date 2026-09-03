@@ -78,10 +78,10 @@ static void dump_state(simulator_t *sim) {
     for (int i = 0; i < 8; i++) {
         bit addr[8], out[32];
         for (int b = 0; b < 8; b++) addr[b] = (i >> b) & 1;
-        sram256_set_addr(&sim->board.ram, addr);
-        sram256_set_cs(&sim->board.ram, 1);
-        sram256_propagate(&sim->board.ram);
-        sram256_read(&sim->board.ram, out);
+        ram_set_addr(&sim->board.ram, addr);
+        ram_set_cs(&sim->board.ram, 1);
+        ram_propagate(&sim->board.ram);
+        ram_read(&sim->board.ram, out);
         unsigned int v = from_bits_32(out);
         printf("  ram[%d] = %u (0x%08x)\n", i, v, v);
     }
@@ -92,6 +92,7 @@ static void print_usage(const char *prog) {
     printf("Usage: %s [options]\n\n", prog);
     printf("Options:\n");
     printf("  -h, --help          Show this help\n");
+    printf("  -m, --arch ARCH     single | multi | pipe (default: single)\n");
     printf("  -c, --cycles N      Run N cycles (default: 100)\n");
     printf("  -v, --verbose       Verbose mode\n");
     printf("  -w, --vcd FILE      Write a VCD waveform file\n");
@@ -129,7 +130,8 @@ static void run_demo_program(simulator_t *sim) {
 }
 
 int main(int argc, char **argv) {
-    simulator_t sim;
+    static simulator_t sim;
+    sim_arch_t arch = SIM_ARCH_SINGLE;
     int max_cycles = 100;
     int verbose = 0;
     const char *vcd_file = NULL;
@@ -143,6 +145,14 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--cycles") == 0) {
             if (i + 1 < argc) {
                 max_cycles = atoi(argv[++i]);
+            }
+            continue;
+        }
+        if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--arch") == 0) {
+            if (i + 1 < argc) {
+                const char *name = argv[++i];
+                arch = strcmp(name, "pipe") == 0 ? SIM_ARCH_PIPE : strcmp(name, "multi") == 0 ? SIM_ARCH_MULTI
+                                                                                              : SIM_ARCH_SINGLE;
             }
             continue;
         }
@@ -179,6 +189,7 @@ int main(int argc, char **argv) {
     printf("===========================================\n\n");
 
     simulator_init(&sim);
+    simulator_set_arch(&sim, arch);
     simulator_set_verbose(&sim, verbose);
     simulator_enable_console(&sim);
 
@@ -186,15 +197,15 @@ int main(int argc, char **argv) {
         printf("Loading program: %s\n", asm_file);
         assembler_t as;
         assembler_init(&as);
-        unsigned int program_words[256];
-        int count = assembler_assemble_file(&as, asm_file, program_words, 256);
+        static unsigned int program_words[ROM_WORDS];
+        int count = assembler_assemble_file(&as, asm_file, program_words, ROM_WORDS);
         if (count < 0) {
             fprintf(stderr, "%s\n", as.error);
             return 1;
         }
         printf("Instructions loaded: %d\n\n", count);
 
-        bit program[256][32];
+        static bit program[ROM_WORDS][32];
         for (int i = 0; i < count; i++) {
             to_bits_32(program_words[i], program[i]);
             char disasm[MAX_DISASM_LEN];

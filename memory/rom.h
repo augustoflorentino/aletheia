@@ -14,7 +14,7 @@ typedef struct {
 
 void rom_init(rom_16x32_t *rom);
 void rom_reset(rom_16x32_t *rom);
-void rom_load_word(rom_16x32_t *rom, int index, bit *data);
+void rom_program(rom_16x32_t *rom, bit *addr, bit en, bit *data);
 void rom_set_addr(rom_16x32_t *rom, bit *addr);
 void rom_set_cs(rom_16x32_t *rom, bit cs);
 void rom_propagate(rom_16x32_t *rom);

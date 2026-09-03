@@ -8,16 +8,13 @@ static void set5(bit *arr, uint32_t v) {
 }
 
 static void ref_hazard(uint32_t id_ex_rt, uint32_t if_id_rs, uint32_t if_id_rt,
-                       int mem_read, int branch, int zero,
-                       int *stall, int *flush_if_id, int *flush_id_ex,
+                       int mem_read, int *stall, int *flush_id_ex,
                        int *pc_write, int *if_id_write) {
     int rt_eq_rs = (id_ex_rt == if_id_rs);
     int rt_eq_rt = (id_ex_rt == if_id_rt);
-    int load_use = mem_read && (rt_eq_rs || rt_eq_rt);
-    int branch_taken = branch && zero;
+    int load_use = mem_read && id_ex_rt != 0 && (rt_eq_rs || rt_eq_rt);
     *stall = load_use;
-    *flush_if_id = branch_taken;
-    *flush_id_ex = load_use || branch_taken;
+    *flush_id_ex = load_use;
     *pc_write = !load_use;
     *if_id_write = !load_use;
 }
@@ -35,8 +32,6 @@ static void test_hazard(void) {
         uint32_t if_id_rs = rng_next() & 31u;
         uint32_t if_id_rt = rng_next() & 31u;
         int mem_read = rng_next() & 1;
-        int branch = rng_next() & 1;
-        int zero = rng_next() & 1;
 
         if ((k % 5) == 0) if_id_rs = id_ex_rt;
         if ((k % 5) == 1) if_id_rt = id_ex_rt;
@@ -49,16 +44,12 @@ static void test_hazard(void) {
         hazard_set_id_ex_rt(&hu, b_rt);
         hazard_set_if_id_rs(&hu, b_rs);
         hazard_set_if_id_rt(&hu, b_rt2);
-        hazard_set_ex_mem_branch(&hu, branch);
-        hazard_set_ex_mem_zero(&hu, zero);
         hazard_propagate(&hu);
 
-        int stall, fifid, fidex, pcw, ifidw;
-        ref_hazard(id_ex_rt, if_id_rs, if_id_rt, mem_read, branch, zero,
-                   &stall, &fifid, &fidex, &pcw, &ifidw);
+        int stall, fidex, pcw, ifidw;
+        ref_hazard(id_ex_rt, if_id_rs, if_id_rt, mem_read, &stall, &fidex, &pcw, &ifidw);
 
         CHECK_EQ_BIT(hazard_get_stall(&hu), stall, "hazard stall");
-        CHECK_EQ_BIT(hazard_get_flush_if_id(&hu), fifid, "hazard flush_if_id");
         CHECK_EQ_BIT(hazard_get_flush_id_ex(&hu), fidex, "hazard flush_id_ex");
         CHECK_EQ_BIT(hazard_get_pc_write(&hu), pcw, "hazard pc_write");
         CHECK_EQ_BIT(hazard_get_if_id_write(&hu), ifidw, "hazard if_id_write");

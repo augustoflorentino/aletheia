@@ -14,11 +14,13 @@ typedef struct {
     bit fill;
     bit pt_fill_pfn[20];
     bit pt_fill;
+    bit pt_valid;
 
     bit paddr[32];
     bit fault;
     bit translated;
     bit tlb_hit;
+    bit pt_hit;
 } mmu_t;
 
 void mmu_init(mmu_t *m);
@@ -28,6 +30,7 @@ void mmu_set_fill_pfn(mmu_t *m, bit *pfn);
 void mmu_set_fill(mmu_t *m, bit fill);
 void mmu_set_pt_pfn(mmu_t *m, bit *pfn);
 void mmu_set_pt_fill(mmu_t *m, bit fill);
+void mmu_set_pt_valid(mmu_t *m, bit valid);
 void mmu_clock_fall(mmu_t *m);
 void mmu_clock_rise(mmu_t *m);
 void mmu_propagate(mmu_t *m);

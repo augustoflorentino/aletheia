@@ -169,15 +169,10 @@ void rom_reset(rom_16x32_t *rom) {
     rom_init(rom);
 }
 
-void rom_load_word(rom_16x32_t *rom, int index, bit *data) {
-    bit idx[4];
-    idx[0] = index & 1;
-    idx[1] = (index >> 1) & 1;
-    idx[2] = (index >> 2) & 1;
-    idx[3] = (index >> 3) & 1;
-
+void rom_program(rom_16x32_t *rom, bit *idx, bit en, bit *data) {
     bit sel[16];
-    bit n0 = NOT(idx[0]); bit n1 = NOT(idx[1]); bit n2 = NOT(idx[2]); bit n3 = NOT(idx[3]);
+    bit n0 = NOT(idx[0]); bit n1 = NOT(idx[1]); bit n2 = NOT(idx[2]); bit n3 = AND(NOT(idx[3]), en);
+    bit p3 = AND(idx[3], en);
 
     sel[0] = AND(AND(n3, n2), AND(n1, n0));
     sel[1] = AND(AND(n3, n2), AND(n1, idx[0]));
@@ -187,14 +182,14 @@ void rom_load_word(rom_16x32_t *rom, int index, bit *data) {
     sel[5] = AND(AND(n3, idx[2]), AND(n1, idx[0]));
     sel[6] = AND(AND(n3, idx[2]), AND(idx[1], n0));
     sel[7] = AND(AND(n3, idx[2]), AND(idx[1], idx[0]));
-    sel[8] = AND(AND(idx[3], n2), AND(n1, n0));
-    sel[9] = AND(AND(idx[3], n2), AND(n1, idx[0]));
-    sel[10] = AND(AND(idx[3], n2), AND(idx[1], n0));
-    sel[11] = AND(AND(idx[3], n2), AND(idx[1], idx[0]));
-    sel[12] = AND(AND(idx[3], idx[2]), AND(n1, n0));
-    sel[13] = AND(AND(idx[3], idx[2]), AND(n1, idx[0]));
-    sel[14] = AND(AND(idx[3], idx[2]), AND(idx[1], n0));
-    sel[15] = AND(AND(idx[3], idx[2]), AND(idx[1], idx[0]));
+    sel[8] = AND(AND(p3, n2), AND(n1, n0));
+    sel[9] = AND(AND(p3, n2), AND(n1, idx[0]));
+    sel[10] = AND(AND(p3, n2), AND(idx[1], n0));
+    sel[11] = AND(AND(p3, n2), AND(idx[1], idx[0]));
+    sel[12] = AND(AND(p3, idx[2]), AND(n1, n0));
+    sel[13] = AND(AND(p3, idx[2]), AND(n1, idx[0]));
+    sel[14] = AND(AND(p3, idx[2]), AND(idx[1], n0));
+    sel[15] = AND(AND(p3, idx[2]), AND(idx[1], idx[0]));
 
     rom->data[0][0] = mux2(rom->data[0][0], data[0], sel[0]);
     rom->data[1][0] = mux2(rom->data[1][0], data[0], sel[1]);

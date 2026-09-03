@@ -35,6 +35,7 @@ void tlb_init(tlb_t *t) {
     cache_line_init(&t->entries[2]);
     cache_line_init(&t->entries[3]);
     t->write = 0;
+    t->flush = 0;
 }
 
 void tlb_reset(tlb_t *t) {
@@ -43,6 +44,7 @@ void tlb_reset(tlb_t *t) {
     cache_line_reset(&t->entries[2]);
     cache_line_reset(&t->entries[3]);
     t->write = 0;
+    t->flush = 0;
 }
 
 void tlb_set_vpn(tlb_t *t, bit *vpn) {
@@ -55,6 +57,10 @@ void tlb_set_pfn(tlb_t *t, bit *pfn) {
 
 void tlb_set_write(tlb_t *t, bit write) {
     t->write = write;
+}
+
+void tlb_set_flush(tlb_t *t, bit flush) {
+    t->flush = flush;
 }
 
 void tlb_clock_fall(tlb_t *t) {
@@ -75,24 +81,28 @@ void tlb_clock_fall(tlb_t *t) {
     cache_line_set_tag(&t->entries[0], tag);
     cache_line_set_data(&t->entries[0], data);
     cache_line_set_valid(&t->entries[0], w0);
+    cache_line_set_invalidate(&t->entries[0], t->flush);
     cache_line_set_dirty(&t->entries[0], 0, 0);
 
     cache_line_set_write(&t->entries[1], w1);
     cache_line_set_tag(&t->entries[1], tag);
     cache_line_set_data(&t->entries[1], data);
     cache_line_set_valid(&t->entries[1], w1);
+    cache_line_set_invalidate(&t->entries[1], t->flush);
     cache_line_set_dirty(&t->entries[1], 0, 0);
 
     cache_line_set_write(&t->entries[2], w2);
     cache_line_set_tag(&t->entries[2], tag);
     cache_line_set_data(&t->entries[2], data);
     cache_line_set_valid(&t->entries[2], w2);
+    cache_line_set_invalidate(&t->entries[2], t->flush);
     cache_line_set_dirty(&t->entries[2], 0, 0);
 
     cache_line_set_write(&t->entries[3], w3);
     cache_line_set_tag(&t->entries[3], tag);
     cache_line_set_data(&t->entries[3], data);
     cache_line_set_valid(&t->entries[3], w3);
+    cache_line_set_invalidate(&t->entries[3], t->flush);
     cache_line_set_dirty(&t->entries[3], 0, 0);
 
     cache_line_clock_fall(&t->entries[0]);

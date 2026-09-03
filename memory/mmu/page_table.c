@@ -730,6 +730,8 @@ void page_table_set_pfn(page_table_t *pt, bit *pfn) {
 
 void page_table_set_write(page_table_t *pt, bit write) { pt->write = write; }
 
+void page_table_set_present(page_table_t *pt, bit present) { pt->present_in = present; }
+
 void page_table_clock_fall(page_table_t *pt) {
     bit sel[16];
     sel[0] = AND(AND(AND(NOT(pt->vpn[0]), NOT(pt->vpn[1])), NOT(pt->vpn[2])), NOT(pt->vpn[3]));
@@ -769,7 +771,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[0][17].d = mux2(pt->pfn[0][17].q, pt->pfn_in[17], we0);
     pt->pfn[0][18].d = mux2(pt->pfn[0][18].q, pt->pfn_in[18], we0);
     pt->pfn[0][19].d = mux2(pt->pfn[0][19].q, pt->pfn_in[19], we0);
-    pt->present[0].d = mux2(pt->present[0].q, 1, we0);
+    pt->present[0].d = mux2(pt->present[0].q, pt->present_in, we0);
     bit we1 = AND(pt->write, sel[1]);
     pt->pfn[1][0].d = mux2(pt->pfn[1][0].q, pt->pfn_in[0], we1);
     pt->pfn[1][1].d = mux2(pt->pfn[1][1].q, pt->pfn_in[1], we1);
@@ -791,7 +793,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[1][17].d = mux2(pt->pfn[1][17].q, pt->pfn_in[17], we1);
     pt->pfn[1][18].d = mux2(pt->pfn[1][18].q, pt->pfn_in[18], we1);
     pt->pfn[1][19].d = mux2(pt->pfn[1][19].q, pt->pfn_in[19], we1);
-    pt->present[1].d = mux2(pt->present[1].q, 1, we1);
+    pt->present[1].d = mux2(pt->present[1].q, pt->present_in, we1);
     bit we2 = AND(pt->write, sel[2]);
     pt->pfn[2][0].d = mux2(pt->pfn[2][0].q, pt->pfn_in[0], we2);
     pt->pfn[2][1].d = mux2(pt->pfn[2][1].q, pt->pfn_in[1], we2);
@@ -813,7 +815,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[2][17].d = mux2(pt->pfn[2][17].q, pt->pfn_in[17], we2);
     pt->pfn[2][18].d = mux2(pt->pfn[2][18].q, pt->pfn_in[18], we2);
     pt->pfn[2][19].d = mux2(pt->pfn[2][19].q, pt->pfn_in[19], we2);
-    pt->present[2].d = mux2(pt->present[2].q, 1, we2);
+    pt->present[2].d = mux2(pt->present[2].q, pt->present_in, we2);
     bit we3 = AND(pt->write, sel[3]);
     pt->pfn[3][0].d = mux2(pt->pfn[3][0].q, pt->pfn_in[0], we3);
     pt->pfn[3][1].d = mux2(pt->pfn[3][1].q, pt->pfn_in[1], we3);
@@ -835,7 +837,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[3][17].d = mux2(pt->pfn[3][17].q, pt->pfn_in[17], we3);
     pt->pfn[3][18].d = mux2(pt->pfn[3][18].q, pt->pfn_in[18], we3);
     pt->pfn[3][19].d = mux2(pt->pfn[3][19].q, pt->pfn_in[19], we3);
-    pt->present[3].d = mux2(pt->present[3].q, 1, we3);
+    pt->present[3].d = mux2(pt->present[3].q, pt->present_in, we3);
     bit we4 = AND(pt->write, sel[4]);
     pt->pfn[4][0].d = mux2(pt->pfn[4][0].q, pt->pfn_in[0], we4);
     pt->pfn[4][1].d = mux2(pt->pfn[4][1].q, pt->pfn_in[1], we4);
@@ -857,7 +859,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[4][17].d = mux2(pt->pfn[4][17].q, pt->pfn_in[17], we4);
     pt->pfn[4][18].d = mux2(pt->pfn[4][18].q, pt->pfn_in[18], we4);
     pt->pfn[4][19].d = mux2(pt->pfn[4][19].q, pt->pfn_in[19], we4);
-    pt->present[4].d = mux2(pt->present[4].q, 1, we4);
+    pt->present[4].d = mux2(pt->present[4].q, pt->present_in, we4);
     bit we5 = AND(pt->write, sel[5]);
     pt->pfn[5][0].d = mux2(pt->pfn[5][0].q, pt->pfn_in[0], we5);
     pt->pfn[5][1].d = mux2(pt->pfn[5][1].q, pt->pfn_in[1], we5);
@@ -879,7 +881,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[5][17].d = mux2(pt->pfn[5][17].q, pt->pfn_in[17], we5);
     pt->pfn[5][18].d = mux2(pt->pfn[5][18].q, pt->pfn_in[18], we5);
     pt->pfn[5][19].d = mux2(pt->pfn[5][19].q, pt->pfn_in[19], we5);
-    pt->present[5].d = mux2(pt->present[5].q, 1, we5);
+    pt->present[5].d = mux2(pt->present[5].q, pt->present_in, we5);
     bit we6 = AND(pt->write, sel[6]);
     pt->pfn[6][0].d = mux2(pt->pfn[6][0].q, pt->pfn_in[0], we6);
     pt->pfn[6][1].d = mux2(pt->pfn[6][1].q, pt->pfn_in[1], we6);
@@ -901,7 +903,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[6][17].d = mux2(pt->pfn[6][17].q, pt->pfn_in[17], we6);
     pt->pfn[6][18].d = mux2(pt->pfn[6][18].q, pt->pfn_in[18], we6);
     pt->pfn[6][19].d = mux2(pt->pfn[6][19].q, pt->pfn_in[19], we6);
-    pt->present[6].d = mux2(pt->present[6].q, 1, we6);
+    pt->present[6].d = mux2(pt->present[6].q, pt->present_in, we6);
     bit we7 = AND(pt->write, sel[7]);
     pt->pfn[7][0].d = mux2(pt->pfn[7][0].q, pt->pfn_in[0], we7);
     pt->pfn[7][1].d = mux2(pt->pfn[7][1].q, pt->pfn_in[1], we7);
@@ -923,7 +925,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[7][17].d = mux2(pt->pfn[7][17].q, pt->pfn_in[17], we7);
     pt->pfn[7][18].d = mux2(pt->pfn[7][18].q, pt->pfn_in[18], we7);
     pt->pfn[7][19].d = mux2(pt->pfn[7][19].q, pt->pfn_in[19], we7);
-    pt->present[7].d = mux2(pt->present[7].q, 1, we7);
+    pt->present[7].d = mux2(pt->present[7].q, pt->present_in, we7);
     bit we8 = AND(pt->write, sel[8]);
     pt->pfn[8][0].d = mux2(pt->pfn[8][0].q, pt->pfn_in[0], we8);
     pt->pfn[8][1].d = mux2(pt->pfn[8][1].q, pt->pfn_in[1], we8);
@@ -945,7 +947,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[8][17].d = mux2(pt->pfn[8][17].q, pt->pfn_in[17], we8);
     pt->pfn[8][18].d = mux2(pt->pfn[8][18].q, pt->pfn_in[18], we8);
     pt->pfn[8][19].d = mux2(pt->pfn[8][19].q, pt->pfn_in[19], we8);
-    pt->present[8].d = mux2(pt->present[8].q, 1, we8);
+    pt->present[8].d = mux2(pt->present[8].q, pt->present_in, we8);
     bit we9 = AND(pt->write, sel[9]);
     pt->pfn[9][0].d = mux2(pt->pfn[9][0].q, pt->pfn_in[0], we9);
     pt->pfn[9][1].d = mux2(pt->pfn[9][1].q, pt->pfn_in[1], we9);
@@ -967,7 +969,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[9][17].d = mux2(pt->pfn[9][17].q, pt->pfn_in[17], we9);
     pt->pfn[9][18].d = mux2(pt->pfn[9][18].q, pt->pfn_in[18], we9);
     pt->pfn[9][19].d = mux2(pt->pfn[9][19].q, pt->pfn_in[19], we9);
-    pt->present[9].d = mux2(pt->present[9].q, 1, we9);
+    pt->present[9].d = mux2(pt->present[9].q, pt->present_in, we9);
     bit we10 = AND(pt->write, sel[10]);
     pt->pfn[10][0].d = mux2(pt->pfn[10][0].q, pt->pfn_in[0], we10);
     pt->pfn[10][1].d = mux2(pt->pfn[10][1].q, pt->pfn_in[1], we10);
@@ -989,7 +991,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[10][17].d = mux2(pt->pfn[10][17].q, pt->pfn_in[17], we10);
     pt->pfn[10][18].d = mux2(pt->pfn[10][18].q, pt->pfn_in[18], we10);
     pt->pfn[10][19].d = mux2(pt->pfn[10][19].q, pt->pfn_in[19], we10);
-    pt->present[10].d = mux2(pt->present[10].q, 1, we10);
+    pt->present[10].d = mux2(pt->present[10].q, pt->present_in, we10);
     bit we11 = AND(pt->write, sel[11]);
     pt->pfn[11][0].d = mux2(pt->pfn[11][0].q, pt->pfn_in[0], we11);
     pt->pfn[11][1].d = mux2(pt->pfn[11][1].q, pt->pfn_in[1], we11);
@@ -1011,7 +1013,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[11][17].d = mux2(pt->pfn[11][17].q, pt->pfn_in[17], we11);
     pt->pfn[11][18].d = mux2(pt->pfn[11][18].q, pt->pfn_in[18], we11);
     pt->pfn[11][19].d = mux2(pt->pfn[11][19].q, pt->pfn_in[19], we11);
-    pt->present[11].d = mux2(pt->present[11].q, 1, we11);
+    pt->present[11].d = mux2(pt->present[11].q, pt->present_in, we11);
     bit we12 = AND(pt->write, sel[12]);
     pt->pfn[12][0].d = mux2(pt->pfn[12][0].q, pt->pfn_in[0], we12);
     pt->pfn[12][1].d = mux2(pt->pfn[12][1].q, pt->pfn_in[1], we12);
@@ -1033,7 +1035,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[12][17].d = mux2(pt->pfn[12][17].q, pt->pfn_in[17], we12);
     pt->pfn[12][18].d = mux2(pt->pfn[12][18].q, pt->pfn_in[18], we12);
     pt->pfn[12][19].d = mux2(pt->pfn[12][19].q, pt->pfn_in[19], we12);
-    pt->present[12].d = mux2(pt->present[12].q, 1, we12);
+    pt->present[12].d = mux2(pt->present[12].q, pt->present_in, we12);
     bit we13 = AND(pt->write, sel[13]);
     pt->pfn[13][0].d = mux2(pt->pfn[13][0].q, pt->pfn_in[0], we13);
     pt->pfn[13][1].d = mux2(pt->pfn[13][1].q, pt->pfn_in[1], we13);
@@ -1055,7 +1057,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[13][17].d = mux2(pt->pfn[13][17].q, pt->pfn_in[17], we13);
     pt->pfn[13][18].d = mux2(pt->pfn[13][18].q, pt->pfn_in[18], we13);
     pt->pfn[13][19].d = mux2(pt->pfn[13][19].q, pt->pfn_in[19], we13);
-    pt->present[13].d = mux2(pt->present[13].q, 1, we13);
+    pt->present[13].d = mux2(pt->present[13].q, pt->present_in, we13);
     bit we14 = AND(pt->write, sel[14]);
     pt->pfn[14][0].d = mux2(pt->pfn[14][0].q, pt->pfn_in[0], we14);
     pt->pfn[14][1].d = mux2(pt->pfn[14][1].q, pt->pfn_in[1], we14);
@@ -1077,7 +1079,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[14][17].d = mux2(pt->pfn[14][17].q, pt->pfn_in[17], we14);
     pt->pfn[14][18].d = mux2(pt->pfn[14][18].q, pt->pfn_in[18], we14);
     pt->pfn[14][19].d = mux2(pt->pfn[14][19].q, pt->pfn_in[19], we14);
-    pt->present[14].d = mux2(pt->present[14].q, 1, we14);
+    pt->present[14].d = mux2(pt->present[14].q, pt->present_in, we14);
     bit we15 = AND(pt->write, sel[15]);
     pt->pfn[15][0].d = mux2(pt->pfn[15][0].q, pt->pfn_in[0], we15);
     pt->pfn[15][1].d = mux2(pt->pfn[15][1].q, pt->pfn_in[1], we15);
@@ -1099,7 +1101,7 @@ void page_table_clock_fall(page_table_t *pt) {
     pt->pfn[15][17].d = mux2(pt->pfn[15][17].q, pt->pfn_in[17], we15);
     pt->pfn[15][18].d = mux2(pt->pfn[15][18].q, pt->pfn_in[18], we15);
     pt->pfn[15][19].d = mux2(pt->pfn[15][19].q, pt->pfn_in[19], we15);
-    pt->present[15].d = mux2(pt->present[15].q, 1, we15);
+    pt->present[15].d = mux2(pt->present[15].q, pt->present_in, we15);
     dff_clock_fall(&pt->pfn[0][0]);
     dff_clock_fall(&pt->pfn[0][1]);
     dff_clock_fall(&pt->pfn[0][2]);

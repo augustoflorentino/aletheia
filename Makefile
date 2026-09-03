@@ -3,7 +3,7 @@ CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -I.
 LDFLAGS =
 
 CORE_SRCS = core/gates/and.c core/gates/or.c core/gates/not.c core/gates/xor.c \
-            core/gates/nand.c core/gates/nor.c \
+            core/gates/nand.c core/gates/nor.c core/gates/select.c \
             core/sequential/sr_latch.c core/sequential/d_latch.c \
             core/sequential/d_flip_flop.c core/sequential/jk_flip_flop.c \
             core/sequential/t_flip_flop.c \
@@ -22,7 +22,7 @@ CPU_SRCS = cpu/alu/adder.c cpu/alu/subtractor.c cpu/alu/multiplier.c \
            cpu/pipeline/forwarding.c \
            cpu/interrupt/interrupt_controller.c cpu/interrupt/exception_handler.c
 
-MEMORY_SRCS = memory/cell.c memory/sram.c memory/sram256.c memory/rom.c memory/rom256.c memory/dram.c \
+MEMORY_SRCS = memory/cell.c memory/sram.c memory/sram256.c memory/rom.c memory/rom256.c memory/rom1k.c memory/dram.c \
               memory/cache/cache_line.c memory/cache/l1_cache.c memory/cache/replacement.c memory/cache/cache_controller.c memory/cache/l2_cache.c \
               memory/mmu/tlb.c memory/mmu/page_table.c memory/mmu/mmu.c
 
@@ -36,16 +36,17 @@ IO_SRCS = io/io_controller.c io/port.c io/dma.c \
           io/convert/bcd_to_ascii.c io/convert/ascii_to_bcd.c \
           io/format/number_formatter.c io/format/number_parser.c
 
-SYSTEM_SRCS = system/power.c system/config.c system/board.c system/board_pipe.c
+SYSTEM_SRCS = system/power.c system/config.c system/memsys.c system/board.c system/board_pipe.c
 
 SIMULATION_SRCS = simulation/scheduler.c \
                   simulation/timing.c simulation/waveform.c simulation/debugger.c \
-                  simulation/simulator.c
+                  simulation/simulator.c simulation/fault.c
 
+REF_SRCS = ref/iss.c
 ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
 
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
-           $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS)
+           $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS) $(REF_SRCS)
 
 OBJS = $(patsubst %.c,build/obj/%.o,$(ALL_SRCS))
 MAIN_OBJ = build/obj/main.o
@@ -53,8 +54,9 @@ MAIN_OBJ = build/obj/main.o
 TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
         tests/test_pipeline tests/test_interrupt tests/test_cosim \
         tests/test_timing tests/test_bcd tests/test_seven_seg \
-        tests/test_format tests/test_uart tests/test_parser \
-        tests/test_cache tests/test_mmu tests/test_dram tests/test_replacement tests/test_cache_ctrl tests/test_display tests/test_pic tests/test_pipeline_regression tests/test_l2 tests/test_halt tests/test_print_path tests/test_synth tests/test_mmio tests/test_jal tests/test_stack tests/test_dma tests/test_primitives tests/test_irq_e2e tests/test_vm tests/test_dcache
+        tests/test_format tests/test_parser tests/test_print_path \
+        tests/test_uart \
+        tests/test_cache tests/test_mmu tests/test_dram tests/test_replacement tests/test_cache_ctrl tests/test_display tests/test_pic tests/test_pipeline_regression tests/test_l2 tests/test_halt tests/test_mmio tests/test_jal tests/test_stack tests/test_dma tests/test_primitives tests/test_irq_e2e tests/test_vm tests/test_dcache
 
 all: aletheia
 
@@ -65,7 +67,7 @@ build/obj/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/tests/%: tests/%.c tests/test.h tests/refmodel.h $(OBJS)
+build/tests/%: tests/%.c tests/test.h tests/refmodel.h ref/iss.h $(OBJS)
 	@mkdir -p build/tests
 	$(CC) $(CFLAGS) $< $(OBJS) $(LDFLAGS) -o $@
 

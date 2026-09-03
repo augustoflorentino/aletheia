@@ -1,4 +1,5 @@
 #include "test.h"
+#include "../simulation/simulator.h"
 
 #include "../system/board.h"
 #include "../isa/isa.h"
@@ -12,7 +13,7 @@ static void load(board_t *b, uint32_t *words, int n) {
         uint32_t w = (i < n) ? words[i] : 0u;
         for (j = 0; j < 32; j++) prog[i][j] = (w >> j) & 1u;
     }
-    for (i = 0; i < 16; i++) rom256_load_word(&b->rom, i, prog[i]);
+    for (i = 0; i < 16; i++) rom_load_at(&b->rom, (unsigned)(i), prog[i]);
 }
 
 static uint32_t reg(board_t *b, int i) {

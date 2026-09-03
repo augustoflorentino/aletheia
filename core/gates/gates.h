@@ -7,5 +7,6 @@
 #include "xor.h"
 #include "nand.h"
 #include "nor.h"
+#include "select.h"
 
 #endif

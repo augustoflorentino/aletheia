@@ -12,6 +12,7 @@ typedef struct {
     bit vpn[20];
     bit pfn_in[20];
     bit write;
+    bit flush;
 
     bit hit;
     bit pfn_out[20];
@@ -22,6 +23,7 @@ void tlb_reset(tlb_t *t);
 void tlb_set_vpn(tlb_t *t, bit *vpn);
 void tlb_set_pfn(tlb_t *t, bit *pfn);
 void tlb_set_write(tlb_t *t, bit write);
+void tlb_set_flush(tlb_t *t, bit flush);
 void tlb_clock_fall(tlb_t *t);
 void tlb_clock_rise(tlb_t *t);
 void tlb_propagate(tlb_t *t);

@@ -1,4 +1,5 @@
 #include "test.h"
+#include "../simulation/simulator.h"
 
 #include "../system/board.h"
 #include "../isa/isa.h"
@@ -8,7 +9,7 @@ static void load_at(board_t *b, int base, const uint32_t *words, int n) {
     int i, j;
     for (i = 0; i < n; i++) {
         for (j = 0; j < 32; j++) w[j] = (words[i] >> j) & 1u;
-        rom256_load_word(&b->rom, base + i, w);
+        rom_load_at(&b->rom, (unsigned)(base + i), w);
     }
 }
 
@@ -18,16 +19,16 @@ static uint32_t reg(board_t *b, int i) {
 }
 
 static void ram_poke(board_t *b, uint32_t addr, uint32_t val) {
-    bit a[8], d[32];
-    to_bits_n(addr, a, 8);
+    bit a[32], d[32];
+    to_bits_32(addr, a);
     to_bits_32(val, d);
-    sram256_set_addr(&b->ram, a);
-    sram256_set_data(&b->ram, d);
-    sram256_set_write(&b->ram, 1);
-    sram256_set_cs(&b->ram, 1);
-    sram256_clock_fall(&b->ram);
-    sram256_clock_rise(&b->ram);
-    sram256_set_write(&b->ram, 0);
+    ram_set_addr(&b->ram, a);
+    ram_set_data(&b->ram, d);
+    ram_set_write(&b->ram, 1);
+    ram_set_cs(&b->ram, 1);
+    ram_clock_fall(&b->ram);
+    ram_clock_rise(&b->ram);
+    ram_set_write(&b->ram, 0);
 }
 
 static void dma_prog(board_t *b, uint32_t r, uint32_t value) {
@@ -90,6 +91,37 @@ static void test_hit_serves_data(void) {
     CHECK_EQ_U32(reg(&b, REG_T5), 0x77u, "DMA snoop updated the L1 line");
 }
 
+static void test_snoop_with_alias(void) {
+    test_suite("dcache: DMA snoop hits a line loaded through an aliased address");
+
+    board_t b;
+    board_init(&b);
+
+    uint32_t prog[] = {
+        encode_i_type(OP_LW, REG_ZERO, REG_T0, RAM_WORDS + 3),
+        encode_i_type(OP_LW, REG_ZERO, REG_T1, RAM_WORDS + 3),
+        0xFC000000u,
+    };
+    load_at(&b, 0, prog, 3);
+    ram_poke(&b, 3, 0x11u);
+    ram_poke(&b, 10, 0x99u);
+
+    board_step(&b);
+    CHECK_EQ_U32(reg(&b, REG_T0), 0x11u, "aliased load reads RAM word 3");
+
+    dma_prog(&b, 0, 10);
+    dma_prog(&b, 1, 3);
+    dma_prog(&b, 2, 1);
+    dma_prog(&b, 3, 1);
+    dma_set_dreq(&b.dma, 1);
+    int c;
+    for (c = 0; c < 6; c++) board_dma_step(&b);
+    dma_set_dreq(&b.dma, 0);
+
+    board_step(&b);
+    CHECK_EQ_U32(reg(&b, REG_T1), 0x99u, "second aliased load sees the DMA write");
+}
+
 static void test_io_not_cached(void) {
     test_suite("dcache: I/O space does not go through the cache");
 
@@ -97,8 +129,8 @@ static void test_io_not_cached(void) {
     board_init(&b);
 
     uint32_t prog[] = {
-        encode_i_type(OP_LW, REG_ZERO, REG_T0, 0x100),
-        encode_i_type(OP_LW, REG_ZERO, REG_T1, 0x100),
+        encode_i_type(OP_LW, REG_ZERO, REG_T0, 0xFF00),
+        encode_i_type(OP_LW, REG_ZERO, REG_T1, 0xFF00),
         0xFC000000u,
     };
     load_at(&b, 0, prog, 3);
@@ -113,6 +145,7 @@ static void test_io_not_cached(void) {
 
 int main(void) {
     test_hit_serves_data();
+    test_snoop_with_alias();
     test_io_not_cached();
     return test_report();
 }
