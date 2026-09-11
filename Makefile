@@ -51,12 +51,16 @@ ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
 OBJS = $(patsubst %.c,build/obj/%.o,$(ALL_SRCS))
 MAIN_OBJ = build/obj/main.o
 
+NL_SRCS = $(filter-out core/gates/%,$(ALL_SRCS)) synth/netlist.c synth/gates_netlist.c
+NL_OBJS = $(patsubst %.c,build/nl/%.o,$(NL_SRCS))
+NL_TESTS = tests/test_synth tests/test_timing
+
 TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
         tests/test_pipeline tests/test_interrupt tests/test_cosim \
         tests/test_timing tests/test_bcd tests/test_seven_seg \
         tests/test_format tests/test_parser tests/test_print_path \
         tests/test_uart \
-        tests/test_cache tests/test_mmu tests/test_dram tests/test_replacement tests/test_cache_ctrl tests/test_display tests/test_pic tests/test_pipeline_regression tests/test_l2 tests/test_halt tests/test_mmio tests/test_jal tests/test_stack tests/test_dma tests/test_primitives tests/test_irq_e2e tests/test_vm tests/test_dcache
+        tests/test_cache tests/test_mmu tests/test_dram tests/test_replacement tests/test_cache_ctrl tests/test_display tests/test_pic tests/test_pipeline_regression tests/test_l2 tests/test_halt tests/test_synth tests/test_mmio tests/test_jal tests/test_stack tests/test_dma tests/test_primitives tests/test_irq_e2e tests/test_vm tests/test_dcache
 
 all: aletheia
 
@@ -71,6 +75,14 @@ build/tests/%: tests/%.c tests/test.h tests/refmodel.h ref/iss.h $(OBJS)
 	@mkdir -p build/tests
 	$(CC) $(CFLAGS) $< $(OBJS) $(LDFLAGS) -o $@
 
+build/nl/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DALETHEIA_NETLIST -c $< -o $@
+
+$(patsubst tests/%,build/tests/%,$(NL_TESTS)): build/tests/%: tests/%.c tests/test.h $(NL_OBJS)
+	@mkdir -p build/tests
+	$(CC) $(CFLAGS) -DALETHEIA_NETLIST $< $(NL_OBJS) $(LDFLAGS) -o $@
+
 TEST_BINS = $(patsubst tests/%,build/tests/%,$(TESTS))
 
 test: check-compliance $(TEST_BINS)
@@ -81,8 +93,9 @@ test: check-compliance $(TEST_BINS)
 test-san:
 	@echo "Running tests under gcc UBSan (-fsanitize=undefined)..."
 	@mkdir -p build; rc=0; for t in $(TESTS); do \
+	  case " $(NL_TESTS) " in *" $$t "*) src="-DALETHEIA_NETLIST $(NL_SRCS)";; *) src="$(ALL_SRCS)";; esac; \
 	  $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -I. -fsanitize=undefined -fno-sanitize-recover=all -g \
-	    $$t.c $(ALL_SRCS) -o build/san.bin 2>/dev/null && ./build/san.bin >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
+	    $$t.c $$src -o build/san.bin 2>/dev/null && ./build/san.bin >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
 	  rm -f build/san.bin; \
 	done; \
 	if [ $$rc -eq 0 ]; then echo "UBSAN CLEAN"; else echo "UBSAN ISSUES"; fi; exit $$rc
@@ -90,7 +103,7 @@ test-san:
 clean:
 	rm -rf build aletheia
 
--include $(OBJS:.o=.d) $(MAIN_OBJ:.o=.d) $(TEST_BINS:=.d)
+-include $(OBJS:.o=.d) $(MAIN_OBJ:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d)
 
 check-compliance:
 	@echo "Checking for forbidden constructs outside simulation/..."
