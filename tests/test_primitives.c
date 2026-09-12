@@ -6,7 +6,6 @@
 #include "../core/sequential/t_flip_flop.h"
 #include "../core/clock/divider.h"
 #include "../io/devices/timer.h"
-#include "../io/port.h"
 
 static void sr(sr_latch_t *l, bit s, bit r) {
     sr_latch_update(l, s, r);
@@ -128,32 +127,6 @@ static void test_timer(void) {
     CHECK_EQ_BIT(t.zero, 1, "counter reached zero after 3 cycles");
 }
 
-static void test_port(void) {
-    test_suite("prim: io_port write/read");
-    io_port_t p;
-    port_init(&p);
-
-    bit dir[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-    port_set_addr(&p, 1, 0);
-    port_set_data(&p, dir);
-    port_set_cs(&p, 1);
-    port_set_write(&p, 1);
-    port_clock_fall(&p);
-    port_clock_rise(&p);
-
-    bit val[8] = {1, 0, 1, 0, 1, 0, 1, 0};
-    port_set_addr(&p, 0, 0);
-    port_set_data(&p, val);
-    port_clock_fall(&p);
-    port_clock_rise(&p);
-    port_set_write(&p, 0);
-
-    port_propagate(&p);
-    bit out[8];
-    port_read_external(&p, out);
-    CHECK_EQ_U32(from_bits_n(out, 8), 0x55u, "external pins reflect 0x55");
-}
-
 int main(void) {
     test_sr_latch();
     test_d_latch();
@@ -161,6 +134,5 @@ int main(void) {
     test_tff();
     test_divider();
     test_timer();
-    test_port();
     return test_report();
 }

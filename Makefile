@@ -28,7 +28,7 @@ MEMORY_SRCS = memory/cell.c memory/sram.c memory/sram256.c memory/rom.c memory/r
 BUS_SRCS = bus/address_bus.c bus/data_bus.c bus/control_bus.c \
            bus/arbiter.c
 
-IO_SRCS = io/io_controller.c io/port.c io/dma.c \
+IO_SRCS = io/dma.c \
           io/devices/timer.c io/devices/gpio.c io/devices/seven_seg.c \
           io/devices/uart.c io/devices/display.c io/devices/pic.c \
           io/convert/bin_to_bcd.c io/convert/bcd_to_bin.c \
