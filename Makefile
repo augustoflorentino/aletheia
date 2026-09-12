@@ -16,8 +16,7 @@ CPU_SRCS = cpu/alu/adder.c cpu/alu/subtractor.c cpu/alu/multiplier.c \
            cpu/registers/register.c cpu/registers/register_file.c \
            cpu/registers/pc.c cpu/registers/ir.c \
            cpu/registers/mar.c cpu/registers/mdr.c cpu/registers/flags.c \
-           cpu/control/decoder.c cpu/control/sequencer.c \
-           cpu/control/control_unit.c cpu/control/microcode.c \
+           cpu/control/decoder.c \
            cpu/pipeline/pipeline_reg.c cpu/pipeline/hazard_unit.c \
            cpu/pipeline/forwarding.c \
            cpu/interrupt/interrupt_controller.c cpu/interrupt/exception_handler.c
