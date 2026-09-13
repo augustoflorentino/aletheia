@@ -29,7 +29,7 @@ BUS_SRCS = bus/address_bus.c bus/data_bus.c bus/control_bus.c \
            bus/arbiter.c
 
 IO_SRCS = io/dma.c \
-          io/devices/timer.c io/devices/gpio.c io/devices/seven_seg.c \
+          io/devices/timer.c io/devices/gpio.c \
           io/devices/uart.c io/devices/display.c io/devices/pic.c
 
 SYSTEM_SRCS = system/power.c system/config.c system/memsys.c system/board.c system/board_pipe.c
@@ -53,7 +53,7 @@ NL_TESTS = tests/test_synth tests/test_timing
 
 TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
         tests/test_pipeline tests/test_interrupt tests/test_cosim \
-        tests/test_timing tests/test_seven_seg \
+        tests/test_timing \
         tests/test_uart \
         tests/test_cache tests/test_mmu tests/test_dram tests/test_replacement tests/test_cache_ctrl tests/test_display tests/test_pic tests/test_pipeline_regression tests/test_l2 tests/test_halt tests/test_synth tests/test_mmio tests/test_jal tests/test_stack tests/test_dma tests/test_primitives tests/test_irq_e2e tests/test_vm tests/test_dcache
 
