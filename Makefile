@@ -101,12 +101,7 @@ clean:
 -include $(OBJS:.o=.d) $(MAIN_OBJ:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d)
 
 check-compliance:
-	@echo "Checking for forbidden constructs outside simulation/..."
-	@! grep -rn --include="*.c" -E '\bif\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
-	@! grep -rn --include="*.c" -E '\bfor\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
-	@! grep -rn --include="*.c" -E '\bwhile\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
-	@! grep -rn --include="*.c" -E '\bswitch\s*\(' core/ cpu/ memory/ bus/ io/ system/ 2>/dev/null | grep -v "simulation/" || true
-	@echo "Compliance check complete"
+	@python3 tools/check_hw.py
 
 FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h tests/*.h include/aletheia/*.h))
 
