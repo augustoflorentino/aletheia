@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -I.
+CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -fPIC -fvisibility=hidden -I.
 LDFLAGS =
 
 CORE_SRCS = core/gates/and.c core/gates/or.c core/gates/not.c core/gates/xor.c \
@@ -40,12 +40,20 @@ SIMULATION_SRCS = simulation/scheduler.c \
 
 REF_SRCS = ref/iss.c
 ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
+API_SRCS = api/aletheia.c
+CLI_SRCS = cli/main.c
 
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
-           $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS) $(REF_SRCS)
+           $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS) $(REF_SRCS) $(API_SRCS)
 
 OBJS = $(patsubst %.c,build/obj/%.o,$(ALL_SRCS))
-MAIN_OBJ = build/obj/main.o
+CLI_OBJS = $(patsubst %.c,build/obj/%.o,$(CLI_SRCS))
+
+VERSION := $(shell sed -n 's/^\#define ALT_VERSION_\(MAJOR\|MINOR\|PATCH\) //p' include/aletheia/aletheia.h | paste -sd.)
+MAJOR := $(firstword $(subst ., ,$(VERSION)))
+LIBDIR = build/lib
+STATIC_LIB = $(LIBDIR)/libaletheia.a
+SHARED_LIB = $(LIBDIR)/libaletheia.so.$(VERSION)
 
 NL_SRCS = $(filter-out core/gates/%,$(ALL_SRCS)) synth/netlist.c synth/gates_netlist.c
 NL_OBJS = $(patsubst %.c,build/nl/%.o,$(NL_SRCS))
@@ -59,8 +67,27 @@ TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
 
 all: aletheia
 
-aletheia: $(MAIN_OBJ) $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(MAIN_OBJ) $(OBJS)
+aletheia: $(CLI_OBJS) $(STATIC_LIB)
+	$(CC) $(LDFLAGS) -o $@ $(CLI_OBJS) $(STATIC_LIB)
+
+$(STATIC_LIB): $(OBJS)
+	@mkdir -p $(LIBDIR)
+	rm -f $@
+	ar rcs $@ $^
+
+$(SHARED_LIB): $(OBJS)
+	@mkdir -p $(LIBDIR)
+	$(CC) -shared -Wl,-soname,libaletheia.so.$(MAJOR) $(LDFLAGS) -o $@ $^
+	ln -sf libaletheia.so.$(VERSION) $(LIBDIR)/libaletheia.so.$(MAJOR)
+	ln -sf libaletheia.so.$(MAJOR) $(LIBDIR)/libaletheia.so
+
+lib: $(STATIC_LIB) $(SHARED_LIB)
+
+check-api: $(SHARED_LIB) $(CLI_OBJS)
+	@bad=$$(nm -D --defined-only $(SHARED_LIB) | awk '{print $$3}' | grep -v '^alt_' || true); \
+	if [ -n "$$bad" ]; then echo "exported outside alt_: $$bad"; exit 1; fi
+	@$(CC) -o build/cli-shared $(CLI_OBJS) -L$(LIBDIR) -l:libaletheia.so.$(VERSION) && rm -f build/cli-shared
+	@echo "api ok: $$(nm -D --defined-only $(SHARED_LIB) | grep -c ' T alt_') functions, cli uses only the public API"
 
 build/obj/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -98,7 +125,7 @@ test-san:
 clean:
 	rm -rf build aletheia
 
--include $(OBJS:.o=.d) $(MAIN_OBJ:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d)
+-include $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d)
 
 check-compliance:
 	@python3 tools/check_hw.py
@@ -111,4 +138,4 @@ format:
 format-check:
 	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
 
-.PHONY: all clean check-compliance test test-san format format-check
+.PHONY: all lib check-api clean check-compliance test test-san format format-check
