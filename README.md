@@ -27,42 +27,47 @@ stayed that way.
 
 ## The one rule
 
-Use nothing the hardware itself would not have on its way down to silicon. So
-the hardware core — and the ISA tooling — is written in pure C with zero
-libraries, not even the C standard library: only gates, wires, and the
-structures they form. Libraries appear in exactly one place, the testbench and
-CLI, which use `stdio` to print results and drive the tests — the honest
-boundary between the machine and the bench that measures it. Everything inside
-that boundary is built from primitives, so the flow of information stays
-faithful to what a real circuit would do. Forbidden inside the hardware:
-`if`, `for`, `while`, `switch`, arithmetic and comparison operators — a
-conditional is a multiplexer, a comparison is a comparator circuit, a loop is
-unrolled or made sequential. `make check-compliance` enforces it.
+Use nothing the hardware itself would not have on its way down to silicon. The
+hardware (`core/`, `cpu/`, `memory/`, `bus/`, `io/`, `system/`) is written in
+pure C with zero libraries, not even the C standard library: only gates, wires,
+and the structures they form. Forbidden inside the hardware: `if`, `for`,
+`while`, `switch`, arithmetic and comparison operators. A conditional is a
+multiplexer, a comparison is a comparator circuit, a loop is unrolled or made
+sequential. Even the machine's own decisions (wait for power, hold for DMA)
+come out of its signals, never out of C. `make check-compliance` enforces it.
+
+Everything around the hardware (the assembler, the simulator, the library
+API, the CLI and the tests) is ordinary C11 with the standard library. That is
+the bench, not the machine.
 
 ## What it actually is
 
-A working machine, not a diagram of one. It fetches real instructions from ROM,
-decodes them, reads registers, drives the ALU, touches memory, and writes back —
-all propagating through gates.
+A working machine, not a diagram of one. It powers on, fetches real
+instructions from ROM, decodes them, drives the ALU, touches memory and
+devices, and writes back, all propagating through gates.
 
-- **ISA**: 32-bit, MIPS-like (R/I/J types, `jal`/`jr`, memory-mapped I/O,
-  interrupts).
-- **Three microarchitectures** executing the same ISA, all co-simulated against
-  a pure-C golden model: **single-cycle**, **multi-cycle** (FSM with IR/MAR/MDR),
-  and **pipelined** (5 stages with forwarding, load-use stall, branch flush).
-- **Memory hierarchy**: SRAM and ROM (256 words, hierarchical banks), DRAM with
-  a real refresh model, L1/L2 caches, and an MMU (TLB + two-level page table).
-- **Interrupts & exceptions** wired into the datapath: a hardware timer raises an
-  IRQ through the PIC, the CPU saves EPC/cause, vectors to a handler, and `reti`
-  returns.
-- **I/O**: UART, GPIO, timer, an 8-char display and a seven-segment decoder, all
-  memory-mapped; plus numeric I/O built in gates (binary↔BCD via double dabble,
-  a signed formatter, a parser).
-- **Verification**: ~200k assertions across directed vectors and randomized
-  fuzz, golden-model co-simulation of the whole datapath, static timing analysis
-  over the real netlists (critical path, F_max, glitch detection), and
-  technology mapping to NAND2 for area/timing — everything in-repo, UBSan-clean,
-  zero third-party dependencies.
+- **ISA**: 32-bit, MIPS-like, 30 instructions: arithmetic and logic (`add`,
+  `sub`, `and`, `or`, `xor`, `nor`, `slt[u]`, immediates, `lui`), shifts
+  (`sll`, `srl`, `sra` and variable forms), `lw`/`sw`, `beq`/`bne`, `j`/`jal`/
+  `jr`/`jalr`, `reti` and `halt`.
+- **Three microarchitectures** running the same ISA: **single-cycle**,
+  **multi-cycle** (FSM with IR/MAR/MDR) and **pipelined** (5 stages, forwarding,
+  load-use stall, branch flush). All three are co-simulated against a reference
+  instruction-set simulator (`ref/iss.c`).
+- **Power and reset**: a power controller holds the machine in reset until the
+  supply is stable; jumpers sampled at reset turn the L1/L2 caches and the MMU
+  on or off and set the timer prescaler.
+- **Memory**: a 256-word SRAM, a 1K-word ROM, a DRAM that needs refresh and
+  leaks when it does not get it, L1 and L2 caches, and an MMU (TLB plus a
+  16-entry page table).
+- **Exceptions and interrupts**: undefined instruction, address error and IRQ,
+  each with its own vector; EPC is saved and `reti` returns. A timer raises the
+  IRQ through a PIC with a mask register.
+- **I/O**, all memory-mapped at `0xFFFFFF00`: UART, GPIO, timer, PIC, an
+  8-character display and a DMA engine.
+- **Observability**: VCD waveforms (`-w`), breakpoints (`-b`), bit flips in
+  the PC, a register or RAM at a chosen cycle (`-f`), and a power cut that
+  shows what the DRAM kept (`--power-off`, `demos/coldboot.asm`).
 
 ## Build & run
 
@@ -70,11 +75,29 @@ all propagating through gates.
 make                       # builds ./aletheia
 make test                  # compliance check + full test suite
 ./aletheia -a demos/counter.asm -c 3000
+./aletheia -a demos/counter.asm -c 3000 -m pipe
+./aletheia --help          # every option
 ```
 
 The demo is a timer-interrupt-driven counter: the timer fires, a handler
 increments a value and re-arms the device, and the main loop prints each digit
-over the (gate-level) UART and to the display — the whole path in gates.
+over the UART and to the display.
+
+Other targets: `make test-san` (UBSan), `make format`.
+
+## Library
+
+```sh
+make lib                   # build/lib/libaletheia.a and .so
+```
+
+The interface is `include/aletheia/aletheia.h`, every name prefixed `alt_`. A
+machine is an opaque `alt_machine_t` created with an optional allocator; you
+load a ROM, power it on, then `alt_step` or `alt_run` it and read its state
+(PC, registers, RAM, display, UART output). Faults, power cuts and VCD traces
+are part of the API. Each machine is independent, so one process can run
+several. The CLI in `cli/` uses only this interface, and `make check-api`
+verifies it.
 
 ---
 
