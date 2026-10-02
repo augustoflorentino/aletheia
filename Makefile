@@ -54,6 +54,7 @@ MAJOR := $(firstword $(subst ., ,$(VERSION)))
 LIBDIR = build/lib
 STATIC_LIB = $(LIBDIR)/libaletheia.a
 SHARED_LIB = $(LIBDIR)/libaletheia.so.$(VERSION)
+PREFIX ?= /usr/local
 
 NL_SRCS = $(filter-out core/gates/%,$(ALL_SRCS)) synth/netlist.c synth/gates_netlist.c
 NL_OBJS = $(patsubst %.c,build/nl/%.o,$(NL_SRCS))
@@ -88,6 +89,15 @@ check-api: $(SHARED_LIB) $(CLI_OBJS)
 	if [ -n "$$bad" ]; then echo "exported outside alt_: $$bad"; exit 1; fi
 	@$(CC) -o build/cli-shared $(CLI_OBJS) -L$(LIBDIR) -l:libaletheia.so.$(VERSION) && rm -f build/cli-shared
 	@echo "api ok: $$(nm -D --defined-only $(SHARED_LIB) | grep -c ' T alt_') functions, cli uses only the public API"
+
+install: lib
+	install -d $(DESTDIR)$(PREFIX)/include/aletheia $(DESTDIR)$(PREFIX)/lib/pkgconfig
+	install -m 644 include/aletheia/aletheia.h $(DESTDIR)$(PREFIX)/include/aletheia/
+	install -m 644 $(STATIC_LIB) $(DESTDIR)$(PREFIX)/lib/
+	install -m 755 $(SHARED_LIB) $(DESTDIR)$(PREFIX)/lib/
+	ln -sf libaletheia.so.$(VERSION) $(DESTDIR)$(PREFIX)/lib/libaletheia.so.$(MAJOR)
+	ln -sf libaletheia.so.$(MAJOR) $(DESTDIR)$(PREFIX)/lib/libaletheia.so
+	sed -e 's|@PREFIX@|$(PREFIX)|' -e 's|@VERSION@|$(VERSION)|' aletheia.pc.in > $(DESTDIR)$(PREFIX)/lib/pkgconfig/aletheia.pc
 
 build/obj/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -138,4 +148,4 @@ format:
 format-check:
 	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
 
-.PHONY: all lib check-api clean check-compliance test test-san format format-check
+.PHONY: all lib check-api install clean check-compliance test test-san format format-check

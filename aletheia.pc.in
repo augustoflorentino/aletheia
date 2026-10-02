@@ -1,0 +1,9 @@
+prefix=@PREFIX@
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: aletheia
+Description: A 32-bit computer simulated at the logic-gate level
+Version: @VERSION@
+Cflags: -I${includedir}
+Libs: -L${libdir} -laletheia
