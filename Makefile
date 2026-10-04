@@ -140,6 +140,20 @@ clean:
 check-compliance:
 	@python3 tools/check_hw.py
 
+DEMOS = demos/counter.asm demos/fib.asm demos/sort.asm demos/pin.asm demos/dma.asm
+
+demos: aletheia
+	@mkdir -p build
+	@rc=0; for d in $(DEMOS); do \
+	  for a in single multi pipe; do \
+	    ./aletheia -m $$a -a $$d -i 4719 -c 200000 > build/demo.$$a 2>&1; echo "exit $$?" >> build/demo.$$a; \
+	    sed -n '/^Starting simulation/,/^Simulation finished/p' build/demo.$$a | sed '1d;$$d' > build/demo.$$a.uart; \
+	    tail -1 build/demo.$$a >> build/demo.$$a.uart; \
+	  done; \
+	  if cmp -s build/demo.single.uart build/demo.multi.uart && cmp -s build/demo.single.uart build/demo.pipe.uart \
+	     && grep -q 'exit 0' build/demo.single.uart; then echo "demo ok: $$d"; else echo "DEMO FAIL: $$d"; rc=1; fi; \
+	done; rm -f build/demo.*; exit $$rc
+
 FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h tests/*.h include/aletheia/*.h))
 
 format:
@@ -148,4 +162,4 @@ format:
 format-check:
 	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
 
-.PHONY: all lib check-api install clean check-compliance test test-san format format-check
+.PHONY: all lib check-api install clean check-compliance test test-san demos format format-check
