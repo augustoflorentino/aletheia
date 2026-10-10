@@ -1,15 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "../include/aletheia/aletheia.h"
 
+#define BOOT_ROM        "firmware/boot.asm"
+#define KEY_POLL_CYCLES 256
 #define MAX_FAULTS      16
 #define MAX_BREAKPOINTS 32
 
 typedef struct {
     long max_cycles;
+    int cycles_given;
     int verbose;
+    int boot;
     alt_arch_t arch;
     long hz;
     unsigned straps;
@@ -29,6 +37,57 @@ typedef struct {
 typedef struct {
     const options_t *opt;
 } hook_ctx_t;
+
+static struct termios saved_tty;
+static int tty_raw;
+
+static void restore_tty(void) {
+    if (tty_raw) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &saved_tty);
+        if (write(STDOUT_FILENO, "\x1b[?25h", 6) < 0) tty_raw = 0;
+    }
+    tty_raw = 0;
+}
+
+static void on_signal(int sig) {
+    restore_tty();
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void open_keyboard(void) {
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+    if (!isatty(STDIN_FILENO) || tcgetattr(STDIN_FILENO, &saved_tty) != 0) return;
+    struct termios raw = saved_tty;
+    raw.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+    raw.c_iflag &= ~(tcflag_t)(IXON | ICRNL);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+    tty_raw = 1;
+    atexit(restore_tty);
+    signal(SIGINT, on_signal);
+    signal(SIGTERM, on_signal);
+}
+
+static void poll_keyboard(alt_machine_t *m) {
+    unsigned char buf[64];
+    ssize_t n = read(STDIN_FILENO, buf, sizeof buf);
+    for (ssize_t i = 0; i < n; i++) alt_send_key(m, buf[i]);
+}
+
+static int run_boot(alt_machine_t *m, long max_cycles) {
+    open_keyboard();
+    alt_power_on(m);
+    while (!alt_halted(m) && (max_cycles == 0 || (long)alt_cycles(m) < max_cycles)) {
+        if (alt_cycles(m) % KEY_POLL_CYCLES == 0) poll_keyboard(m);
+        alt_step(m);
+    }
+    for (int i = 0; i < 12; i++) alt_step(m);
+    restore_tty();
+    printf("\n");
+    return alt_halted(m) ? 0 : 2;
+}
 
 static void dump_state(alt_machine_t *m) {
     static const unsigned regs[] = {8, 9, 10, 11, 12, 13};
@@ -77,6 +136,8 @@ static void print_usage(const char *prog) {
     printf("  -a, --asm FILE      Load an assembly program\n");
     printf("  -d, --disasm WORD   Disassemble one instruction (hex)\n");
     printf("  -b, --break ADDR    Stop when the PC reaches ADDR (hex, repeatable)\n");
+    printf("      --boot          Power on into the boot ROM and monitor (%s);\n", BOOT_ROM);
+    printf("                      the keyboard goes to the UART, Ctrl-C quits\n");
     printf("\n");
     printf("Exit status: 0 halted, 1 error, 2 cycle limit reached, 3 breakpoint\n");
 }
@@ -91,7 +152,8 @@ static int fail(const char *what, const char *val, const char *hint) {
 }
 
 static int parse_flag(options_t *o, const char *opt) {
-    if (strcmp(opt, "--l2") == 0) o->straps |= ALT_STRAP_L2;
+    if (strcmp(opt, "--boot") == 0) o->boot = 1;
+    else if (strcmp(opt, "--l2") == 0) o->straps |= ALT_STRAP_L2;
     else if (strcmp(opt, "--no-l1") == 0) o->straps &= ~ALT_STRAP_L1;
     else if (strcmp(opt, "--no-mmu") == 0) o->straps &= ~ALT_STRAP_MMU;
     else if (is_opt(opt, "-v", "--verbose")) o->verbose = 1;
@@ -104,6 +166,7 @@ static int parse_cycles(options_t *o, const char *val) {
     long n = strtol(val, &end, 10);
     if (*end != '\0' || n <= 0 || n > 2000000000L) return fail("cycle count", val, "");
     o->max_cycles = n;
+    o->cycles_given = 1;
     return 0;
 }
 
@@ -261,6 +324,15 @@ static int assemble(const char *path, uint32_t *rom, size_t *out_count) {
     return -1;
 }
 
+static int run_interactive(alt_machine_t *m, const options_t *o) {
+    static uint32_t rom[ALT_ROM_WORDS];
+    size_t count;
+    if (configure(m, o, 1) || assemble(o->asm_file ? o->asm_file : BOOT_ROM, rom, &count)) return 1;
+    alt_load_rom(m, rom, count);
+    long limit = o->cycles_given ? o->max_cycles : 0;
+    return run_boot(m, limit);
+}
+
 static void list_program(const uint32_t *rom, size_t count) {
     for (size_t i = 0; i < count; i++) {
         char text[64];
@@ -327,7 +399,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "out of memory\n");
         return 1;
     }
-    int status = run_batch(m, &o);
+    int status = o.boot ? run_interactive(m, &o) : run_batch(m, &o);
     alt_machine_destroy(m);
     return status;
 }
