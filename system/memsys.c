@@ -25,6 +25,12 @@ static void copy_bits_8(bit *src, bit *dst) {
 
 static void copy_ram_bits(bit *src, bit *dst) {
     copy_bits_8(src, dst);
+#if defined(ALETHEIA_MEM_1K) || defined(ALETHEIA_MEM_4K)
+    dst[8] = src[8]; dst[9] = src[9];
+#endif
+#if defined(ALETHEIA_MEM_4K)
+    dst[10] = src[10]; dst[11] = src[11];
+#endif
 }
 
 static void copy_bits_16(bit *src, bit *dst) {

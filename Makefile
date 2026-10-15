@@ -1,5 +1,8 @@
 CC = gcc
-CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -fPIC -fvisibility=hidden -I.
+MEM ?= 256
+MEM_FLAG_1024 = -DALETHEIA_MEM_1K
+MEM_FLAG_4096 = -DALETHEIA_MEM_4K
+CFLAGS = -std=c11 -D_DEFAULT_SOURCE -O2 -Wall -Wextra -Werror -MMD -MP -fPIC -fvisibility=hidden -I. $(MEM_FLAG_$(MEM))
 LDFLAGS =
 
 CORE_SRCS = core/gates/and.c core/gates/or.c core/gates/not.c core/gates/xor.c \
@@ -21,7 +24,7 @@ CPU_SRCS = cpu/alu/adder.c cpu/alu/subtractor.c cpu/alu/multiplier.c \
            cpu/pipeline/forwarding.c \
            cpu/interrupt/interrupt_controller.c cpu/interrupt/exception_handler.c
 
-MEMORY_SRCS = memory/cell.c memory/sram.c memory/sram256.c memory/rom.c memory/rom256.c memory/rom1k.c memory/dram.c \
+MEMORY_SRCS = memory/cell.c memory/sram.c memory/sram256.c memory/sram1k.c memory/sram4k.c memory/rom.c memory/rom256.c memory/rom1k.c memory/dram.c \
               memory/cache/cache_line.c memory/cache/l1_cache.c memory/cache/replacement.c memory/cache/cache_controller.c memory/cache/l2_cache.c \
               memory/mmu/tlb.c memory/mmu/page_table.c memory/mmu/mmu.c
 
@@ -46,18 +49,18 @@ CLI_SRCS = cli/main.c
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
            $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS) $(REF_SRCS) $(API_SRCS)
 
-OBJS = $(patsubst %.c,build/obj/%.o,$(ALL_SRCS))
-CLI_OBJS = $(patsubst %.c,build/obj/%.o,$(CLI_SRCS))
+OBJS = $(patsubst %.c,build/obj$(MEM)/%.o,$(ALL_SRCS))
+CLI_OBJS = $(patsubst %.c,build/obj$(MEM)/%.o,$(CLI_SRCS))
 
 VERSION := $(shell sed -n 's/^\#define ALT_VERSION_\(MAJOR\|MINOR\|PATCH\) //p' include/aletheia/aletheia.h | paste -sd.)
 MAJOR := $(firstword $(subst ., ,$(VERSION)))
-LIBDIR = build/lib
+LIBDIR = build/lib$(MEM)
 STATIC_LIB = $(LIBDIR)/libaletheia.a
 SHARED_LIB = $(LIBDIR)/libaletheia.so.$(VERSION)
 PREFIX ?= /usr/local
 
 NL_SRCS = $(filter-out core/gates/%,$(ALL_SRCS)) synth/netlist.c synth/gates_netlist.c
-NL_OBJS = $(patsubst %.c,build/nl/%.o,$(NL_SRCS))
+NL_OBJS = $(patsubst %.c,build/nl$(MEM)/%.o,$(NL_SRCS))
 NL_TESTS = tests/test_synth tests/test_timing
 
 TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
@@ -68,7 +71,14 @@ TESTS = tests/test_gates tests/test_alu tests/test_arith tests/test_registers \
 
 all: aletheia
 
-aletheia: $(CLI_OBJS) $(STATIC_LIB)
+MEM_STAMP = build/mem.$(MEM)
+
+$(MEM_STAMP):
+	@mkdir -p build
+	@rm -f build/mem.*
+	@touch $@
+
+aletheia: $(CLI_OBJS) $(STATIC_LIB) $(MEM_STAMP)
 	$(CC) $(LDFLAGS) -o $@ $(CLI_OBJS) $(STATIC_LIB)
 
 $(STATIC_LIB): $(OBJS)
@@ -99,23 +109,23 @@ install: lib
 	ln -sf libaletheia.so.$(MAJOR) $(DESTDIR)$(PREFIX)/lib/libaletheia.so
 	sed -e 's|@PREFIX@|$(PREFIX)|' -e 's|@VERSION@|$(VERSION)|' aletheia.pc.in > $(DESTDIR)$(PREFIX)/lib/pkgconfig/aletheia.pc
 
-build/obj/%.o: %.c
+build/obj$(MEM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/tests/%: tests/%.c tests/test.h tests/refmodel.h ref/iss.h $(OBJS)
-	@mkdir -p build/tests
+build/tests$(MEM)/%: tests/%.c tests/test.h tests/refmodel.h ref/iss.h $(OBJS)
+	@mkdir -p build/tests$(MEM)
 	$(CC) $(CFLAGS) $< $(OBJS) $(LDFLAGS) -o $@
 
-build/nl/%.o: %.c
+build/nl$(MEM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -DALETHEIA_NETLIST -c $< -o $@
 
-$(patsubst tests/%,build/tests/%,$(NL_TESTS)): build/tests/%: tests/%.c tests/test.h $(NL_OBJS)
-	@mkdir -p build/tests
+$(patsubst tests/%,build/tests$(MEM)/%,$(NL_TESTS)): build/tests$(MEM)/%: tests/%.c tests/test.h $(NL_OBJS)
+	@mkdir -p build/tests$(MEM)
 	$(CC) $(CFLAGS) -DALETHEIA_NETLIST $< $(NL_OBJS) $(LDFLAGS) -o $@
 
-TEST_BINS = $(patsubst tests/%,build/tests/%,$(TESTS))
+TEST_BINS = $(patsubst tests/%,build/tests$(MEM)/%,$(TESTS))
 
 test: check-compliance $(TEST_BINS)
 	@echo "Running test suite..."
@@ -126,7 +136,7 @@ test-san:
 	@echo "Running tests under gcc UBSan (-fsanitize=undefined)..."
 	@mkdir -p build; rc=0; for t in $(TESTS); do \
 	  case " $(NL_TESTS) " in *" $$t "*) src="-DALETHEIA_NETLIST $(NL_SRCS)";; *) src="$(ALL_SRCS)";; esac; \
-	  $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -I. -fsanitize=undefined -fno-sanitize-recover=all -g \
+	  $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -I. $(MEM_FLAG_$(MEM)) -fsanitize=undefined -fno-sanitize-recover=all -g \
 	    $$t.c $$src -o build/san.bin 2>/dev/null && ./build/san.bin >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
 	  rm -f build/san.bin; \
 	done; \
