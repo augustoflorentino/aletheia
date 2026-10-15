@@ -145,7 +145,7 @@ test-san:
 clean:
 	rm -rf build aletheia
 
--include $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d)
+-include $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) build/bench.d build/bench-gates.d
 
 check-compliance:
 	@python3 tools/check_hw.py
@@ -164,6 +164,27 @@ demos: aletheia
 	     && grep -q 'exit 0' build/demo.single.uart; then echo "demo ok: $$d"; else echo "DEMO FAIL: $$d"; rc=1; fi; \
 	done; rm -f build/demo.*; exit $$rc
 
+BENCH_CYCLES ?= 5000
+
+build/bench: tools/bench.c $(OBJS) $(MEM_STAMP)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $< $(OBJS) -o $@
+
+build/bench-gates: tools/bench.c $(NL_OBJS) $(MEM_STAMP)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -DALETHEIA_NETLIST $< $(NL_OBJS) -o $@
+
+bench: build/bench build/bench-gates aletheia
+	@./build/bench-gates
+	@./build/bench $(BENCH_CYCLES)
+	@printf "%-18s %8s %8s %8s %7s %7s\n" program single multi pipe CPI-mc CPI-pp
+	@for d in demos/fib.asm demos/sort.asm demos/pin.asm; do \
+	  s=$$(./aletheia -m single -a $$d -i 4719 -c 200000 | sed -n 's/^Cycles executed: //p'); \
+	  m=$$(./aletheia -m multi -a $$d -i 4719 -c 200000 | sed -n 's/^Cycles executed: //p'); \
+	  p=$$(./aletheia -m pipe -a $$d -i 4719 -c 200000 | sed -n 's/^Cycles executed: //p'); \
+	  awk -v d=$$d -v s=$$s -v m=$$m -v p=$$p 'BEGIN { printf "%-18s %8d %8d %8d %7.2f %7.2f\n", d, s, m, p, m/s, p/s }'; \
+	done
+
 FORMAT_SRCS = $(filter-out core/% cpu/% memory/% bus/% io/% system/%,$(wildcard *.c */*.c */*.h tests/*.h include/aletheia/*.h))
 
 format:
@@ -172,4 +193,4 @@ format:
 format-check:
 	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
 
-.PHONY: all lib check-api install clean check-compliance test test-san demos format format-check
+.PHONY: all lib check-api install clean check-compliance test test-san bench demos format format-check
