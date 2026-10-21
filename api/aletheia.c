@@ -43,6 +43,12 @@ static uint32_t word_of(const bit *bits, int width) {
     return v;
 }
 
+static uint32_t word_of_dffs(const d_flip_flop_t *f, int width) {
+    uint32_t v = 0;
+    for (int i = 0; i < width; i++) v |= (uint32_t)(f[i].q & 1) << i;
+    return v;
+}
+
 static void bits_of(uint32_t v, bit *bits, int width) {
     for (int i = 0; i < width; i++) bits[i] = (bit)((v >> i) & 1u);
 }
@@ -241,6 +247,14 @@ int alt_halted(const alt_machine_t *machine) {
     return machine->sim.board.halt != 0;
 }
 
+alt_arch_t alt_arch(const alt_machine_t *machine) {
+    return (alt_arch_t)machine->sim.arch;
+}
+
+long alt_hz(const alt_machine_t *machine) {
+    return machine->sim.hz;
+}
+
 uint32_t alt_pc(alt_machine_t *machine) {
     return word_of(machine->sim.board.pc.reg.data_out, 32);
 }
@@ -322,6 +336,26 @@ unsigned char alt_display_char(alt_machine_t *machine, unsigned index) {
     display_set_addr(&machine->sim.board.disp, a);
     display_propagate(&machine->sim.board.disp);
     return (unsigned char)word_of(machine->sim.board.disp.data_out, 8);
+}
+
+unsigned alt_signals(const alt_machine_t *machine) {
+    const board_t *b = &machine->sim.board;
+    unsigned s = 0;
+    s |= (b->pic.int_request & 1) ? ALT_SIGNAL_IRQ : 0;
+    s |= (b->exc.in_exception.q & 1) ? ALT_SIGNAL_EXCEPTION : 0;
+    s |= (b->mmu_en.q & 1) ? ALT_SIGNAL_MMU : 0;
+    return s;
+}
+
+alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t *out_value, int *out_valid) {
+    const board_t *b = &machine->sim.board;
+    if (!out_value || !out_valid || (unsigned)stage > ALT_STAGE_WB) return ALT_ERR_ARG;
+    const uint32_t values[] = {word_of_dffs(b->if_id.instruction, 32), word_of_dffs(b->id_ex.pc, 32),
+                               word_of_dffs(b->ex_mem.pc, 32), word_of_dffs(b->mem_wb.write_reg, 5)};
+    const bit valid[] = {b->if_id.valid.q, b->id_ex.valid.q, b->ex_mem.valid.q, b->mem_wb.valid.q};
+    *out_value = values[stage];
+    *out_valid = (valid[stage] & 1) != 0;
+    return ALT_OK;
 }
 
 size_t alt_output(const alt_machine_t *machine, const char **out_bytes) {

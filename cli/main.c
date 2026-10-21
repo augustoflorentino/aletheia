@@ -5,8 +5,10 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "../include/aletheia/aletheia.h"
+#include "panel.h"
 
 #define BOOT_ROM        "firmware/boot.asm"
 #define KEY_POLL_CYCLES 256
@@ -18,6 +20,7 @@ typedef struct {
     int cycles_given;
     int verbose;
     int boot;
+    int panel;
     alt_arch_t arch;
     long hz;
     unsigned straps;
@@ -74,6 +77,57 @@ static void poll_keyboard(alt_machine_t *m) {
     unsigned char buf[64];
     ssize_t n = read(STDIN_FILENO, buf, sizeof buf);
     for (ssize_t i = 0; i < n; i++) alt_send_key(m, buf[i]);
+}
+
+static double seconds(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
+}
+
+static void panel_key(alt_machine_t *m, panel_t *panel, unsigned char key) {
+    long hz = alt_hz(m);
+    if (key == 16) panel->paused = !panel->paused;
+    else if (key == 14 && panel->paused) alt_step(m);
+    else if (key == 6) alt_set_hz(m, hz == 0 || hz >= 65536 ? 0 : hz * 2);
+    else if (key == 2) alt_set_hz(m, hz == 0 ? 4096 : (hz > 1 ? hz / 2 : 1));
+    else alt_send_key(m, key == '\r' ? '\n' : key);
+}
+
+static void idle(void) {
+    struct timespec t = {0, 20000000L};
+    nanosleep(&t, NULL);
+}
+
+static int run_panel(alt_machine_t *m, const uint32_t *rom, long max_cycles) {
+    static panel_t panel;
+    panel_init(&panel, rom);
+    alt_set_output(m, panel_output, &panel);
+    open_keyboard();
+    panel_open();
+    alt_power_on(m);
+    double last_draw = seconds();
+    uint64_t last_cycles = 0;
+    while (max_cycles == 0 || (long)alt_cycles(m) < max_cycles) {
+        unsigned char keys[64];
+        ssize_t n = read(STDIN_FILENO, keys, sizeof keys);
+        for (ssize_t i = 0; i < n; i++) panel_key(m, &panel, keys[i]);
+        int running = !panel.paused && !alt_halted(m);
+        long hz = alt_hz(m);
+        long chunk = hz > 0 ? (hz / 20 > 0 ? hz / 20 : 1) : KEY_POLL_CYCLES;
+        for (long c = 0; running && c < chunk && !alt_halted(m); c++) alt_step(m);
+        if (!running) idle();
+        double now = seconds();
+        if (now - last_draw < 0.05) continue;
+        panel.rate = (double)(alt_cycles(m) - last_cycles) / (now - last_draw);
+        last_draw = now;
+        last_cycles = alt_cycles(m);
+        panel_draw(&panel, m);
+    }
+    panel_draw(&panel, m);
+    panel_close();
+    restore_tty();
+    return alt_halted(m) ? 0 : 2;
 }
 
 static int run_boot(alt_machine_t *m, long max_cycles) {
@@ -138,6 +192,8 @@ static void print_usage(const char *prog) {
     printf("  -b, --break ADDR    Stop when the PC reaches ADDR (hex, repeatable)\n");
     printf("      --boot          Power on into the boot ROM and monitor (%s);\n", BOOT_ROM);
     printf("                      the keyboard goes to the UART, Ctrl-C quits\n");
+    printf("      --panel         Front panel: registers, display, UART, pipeline;\n");
+    printf("                      boots the ROM unless -a is given\n");
     printf("\n");
     printf("Exit status: 0 halted, 1 error, 2 cycle limit reached, 3 breakpoint\n");
 }
@@ -152,7 +208,8 @@ static int fail(const char *what, const char *val, const char *hint) {
 }
 
 static int parse_flag(options_t *o, const char *opt) {
-    if (strcmp(opt, "--boot") == 0) o->boot = 1;
+    if (strcmp(opt, "--panel") == 0) o->panel = 1;
+    else if (strcmp(opt, "--boot") == 0) o->boot = 1;
     else if (strcmp(opt, "--l2") == 0) o->straps |= ALT_STRAP_L2;
     else if (strcmp(opt, "--no-l1") == 0) o->straps &= ~ALT_STRAP_L1;
     else if (strcmp(opt, "--no-mmu") == 0) o->straps &= ~ALT_STRAP_MMU;
@@ -330,7 +387,7 @@ static int run_interactive(alt_machine_t *m, const options_t *o) {
     if (configure(m, o, 1) || assemble(o->asm_file ? o->asm_file : BOOT_ROM, rom, &count)) return 1;
     alt_load_rom(m, rom, count);
     long limit = o->cycles_given ? o->max_cycles : 0;
-    return run_boot(m, limit);
+    return o->panel ? run_panel(m, rom, limit) : run_boot(m, limit);
 }
 
 static void list_program(const uint32_t *rom, size_t count) {
@@ -399,7 +456,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "out of memory\n");
         return 1;
     }
-    int status = o.boot ? run_interactive(m, &o) : run_batch(m, &o);
+    int status = o.boot || o.panel ? run_interactive(m, &o) : run_batch(m, &o);
     alt_machine_destroy(m);
     return status;
 }

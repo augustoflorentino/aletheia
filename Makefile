@@ -44,7 +44,7 @@ SIMULATION_SRCS = simulation/scheduler.c \
 REF_SRCS = ref/iss.c
 ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
 API_SRCS = api/aletheia.c
-CLI_SRCS = cli/main.c
+CLI_SRCS = cli/main.c cli/panel.c
 
 ALL_SRCS = $(CORE_SRCS) $(CPU_SRCS) $(MEMORY_SRCS) $(BUS_SRCS) $(IO_SRCS) \
            $(SYSTEM_SRCS) $(SIMULATION_SRCS) $(ISA_SRCS) $(REF_SRCS) $(API_SRCS)

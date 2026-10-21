@@ -51,14 +51,25 @@ typedef enum {
     ALT_FAULT_RAM
 } alt_fault_target_t;
 
-#define ALT_STRAP_L1      0x1u
-#define ALT_STRAP_L2      0x2u
-#define ALT_STRAP_MMU     0x4u
-#define ALT_STRAP_DEFAULT (ALT_STRAP_L1 | ALT_STRAP_MMU)
+typedef enum {
+    ALT_STAGE_ID,
+    ALT_STAGE_EX,
+    ALT_STAGE_MEM,
+    ALT_STAGE_WB
+} alt_stage_t;
 
-#define ALT_ROM_WORDS     1024u
-#define ALT_DISPLAY_CHARS 8u
-#define ALT_OUTPUT_MAX    4096u
+#define ALT_STRAP_L1         0x1u
+#define ALT_STRAP_L2         0x2u
+#define ALT_STRAP_MMU        0x4u
+#define ALT_STRAP_DEFAULT    (ALT_STRAP_L1 | ALT_STRAP_MMU)
+
+#define ALT_SIGNAL_IRQ       0x1u
+#define ALT_SIGNAL_EXCEPTION 0x2u
+#define ALT_SIGNAL_MMU       0x4u
+
+#define ALT_ROM_WORDS        1024u
+#define ALT_DISPLAY_CHARS    8u
+#define ALT_OUTPUT_MAX       4096u
 
 typedef struct {
     void *(*alloc)(void *ctx, size_t size);
@@ -104,12 +115,16 @@ ALT_API alt_stop_t alt_run(alt_machine_t *machine, uint64_t max_cycles);
 
 ALT_API uint64_t alt_cycles(const alt_machine_t *machine);
 ALT_API int alt_halted(const alt_machine_t *machine);
+ALT_API alt_arch_t alt_arch(const alt_machine_t *machine);
+ALT_API long alt_hz(const alt_machine_t *machine);
 ALT_API uint32_t alt_pc(alt_machine_t *machine);
 ALT_API uint32_t alt_reg(alt_machine_t *machine, unsigned index);
 ALT_API alt_status_t alt_ram_read(alt_machine_t *machine, uint32_t addr, uint32_t *out_word);
 ALT_API alt_status_t alt_ram_write(alt_machine_t *machine, uint32_t addr, uint32_t word);
 ALT_API size_t alt_ram_words(void);
 ALT_API unsigned char alt_display_char(alt_machine_t *machine, unsigned index);
+ALT_API unsigned alt_signals(const alt_machine_t *machine);
+ALT_API alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t *out_value, int *out_valid);
 ALT_API size_t alt_output(const alt_machine_t *machine, const char **out_bytes);
 
 #ifdef __cplusplus
