@@ -42,9 +42,9 @@ the bench, not the machine.
 
 ## What it actually is
 
-A working machine, not a diagram of one. It powers on, fetches real
-instructions from ROM, decodes them, drives the ALU, touches memory and
-devices, and writes back, all propagating through gates.
+A working machine, not a diagram of one. It powers on, runs a self-test,
+fetches real instructions from ROM, decodes them, drives the ALU, touches
+memory and devices, and writes back, all propagating through gates.
 
 - **ISA**: 32-bit, MIPS-like, 30 instructions: arithmetic and logic (`add`,
   `sub`, `and`, `or`, `xor`, `nor`, `slt[u]`, immediates, `lui`), shifts
@@ -57,47 +57,56 @@ devices, and writes back, all propagating through gates.
 - **Power and reset**: a power controller holds the machine in reset until the
   supply is stable; jumpers sampled at reset turn the L1/L2 caches and the MMU
   on or off and set the timer prescaler.
-- **Memory**: a 256-word SRAM, a 1K-word ROM, a DRAM that needs refresh and
-  leaks when it does not get it, L1 and L2 caches, and an MMU (TLB plus a
-  16-entry page table).
+- **Memory**: SRAM of 256, 1024 or 4096 words (`make MEM=...`), a 1K-word ROM,
+  a DRAM that needs refresh and leaks when it does not get it, L1 and L2 caches,
+  and an MMU (TLB plus a 16-entry page table with a user bit).
+- **Protection**: kernel and user mode. In user mode the MMU is forced on,
+  pages without the user bit, the MMIO page and `reti` all trap.
 - **Exceptions and interrupts**: undefined instruction, address error and IRQ,
   each with its own vector; EPC is saved and `reti` returns. A timer raises the
   IRQ through a PIC with a mask register.
 - **I/O**, all memory-mapped at `0xFFFFFF00`: UART, GPIO, timer, PIC, an
   8-character display and a DMA engine.
-- **Observability**: VCD waveforms (`-w`), breakpoints (`-b`), bit flips in
-  the PC, a register or RAM at a chosen cycle (`-f`), and a power cut that
-  shows what the DRAM kept (`--power-off`, `demos/coldboot.asm`).
+- **Firmware**: a boot ROM (`firmware/boot.asm`) that sizes and tests RAM,
+  checks the timer and the UART, and drops into a monitor with `m` (dump),
+  `w` (write) and `g` (go).
+- **Observability**: VCD waveforms (`-w`), breakpoints (`-b`), a live front
+  panel (`--panel`), bit flips in the PC, a register or RAM at a chosen cycle
+  (`-f`), and a power cut that shows what the DRAM kept (`--power-off`,
+  `demos/coldboot.asm`).
 
 ## Build & run
 
 ```sh
-make                       # builds ./aletheia
+make                       # builds ./aletheia (MEM=256 by default)
 make test                  # compliance check + full test suite
-./aletheia -a demos/counter.asm -c 3000
-./aletheia -a demos/counter.asm -c 3000 -m pipe
+make demos                 # every demo on the three cores, outputs must match
+./aletheia -a demos/fib.asm -c 200000
+./aletheia --boot          # power on into the boot ROM and the monitor
+./aletheia --panel -a demos/sort.asm -m pipe
 ./aletheia --help          # every option
 ```
 
-The demo is a timer-interrupt-driven counter: the timer fires, a handler
-increments a value and re-arms the device, and the main loop prints each digit
-over the UART and to the display.
+Demos in `demos/`: `counter` (timer interrupts), `fib`, `sort`, `pin` (reads
+a PIN over the UART), `dma`, `user` (user mode and its traps) and `coldboot`.
 
-Other targets: `make test-san` (UBSan), `make format`.
+Other targets: `make bench`, `make test-san` (UBSan), `make format`.
 
 ## Library
 
 ```sh
-make lib                   # build/lib/libaletheia.a and .so
+make lib                   # build/lib256/libaletheia.a and .so
+make install PREFIX=/usr/local
+cc app.c $(pkg-config --cflags --libs aletheia)
 ```
 
 The interface is `include/aletheia/aletheia.h`, every name prefixed `alt_`. A
 machine is an opaque `alt_machine_t` created with an optional allocator; you
 load a ROM, power it on, then `alt_step` or `alt_run` it and read its state
-(PC, registers, RAM, display, UART output). Faults, power cuts and VCD traces
-are part of the API. Each machine is independent, so one process can run
-several. The CLI in `cli/` uses only this interface, and `make check-api`
-verifies it.
+(PC, registers, RAM, display, pipeline stages, UART output). Faults, power
+cuts and VCD traces are part of the API. Each machine is independent, so one
+process can run several. The CLI in `cli/` uses only this interface, and
+`make check-api` verifies it.
 
 ---
 
