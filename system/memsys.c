@@ -84,6 +84,7 @@ static void decode_io(bit *va, mem_port_t *p) {
     p->sel_picmask = AND(sys_io, AND(a2, AND(NOT(a1), NOT(a0))));
     p->sel_ptfill = AND(sys_io, AND(a2, AND(NOT(a1), a0)));
     p->sel_mmuen = AND(sys_io, AND(a2, AND(a1, NOT(a0))));
+    p->sel_mode = AND(sys_io, AND(a2, AND(a1, a0)));
     p->sel_dma = AND(AND(dev, AND(d1, d0)), AND(a3, NOT(a2)));
 }
 
@@ -98,10 +99,12 @@ static void translate(board_t *b, mem_port_t *p) {
     mux2_32(p->vaddr, fill_vaddr, ptfill_req, mmu_vaddr);
     mmu_set_vaddr(&b->mmu, mmu_vaddr);
     mmu_propagate(&b->mmu);
+    bit user = b->umode.q;
     bit access = OR(p->read, p->write);
-    bit mapping = AND(b->mmu_en.q, config_mmu(&b->config));
+    bit mapping = OR(AND(b->mmu_en.q, config_mmu(&b->config)), user);
     p->translate = AND(mapping, AND(access, NOT(p->io_sel)));
-    p->fault = AND(p->translate, b->mmu.fault);
+    bit denied = OR(b->mmu.fault, AND(user, NOT(b->mmu.paddr[23])));
+    p->fault = OR(AND(p->translate, denied), AND(user, AND(access, p->io_sel)));
 }
 
 static void read_ram(board_t *b, mem_port_t *p, bit *cached) {
@@ -272,6 +275,7 @@ static void commit_system(board_t *b, mem_port_t *p, bit store_en) {
     intc_set_mask(&b->pic.ic, mask_next);
 
     b->mmu_en.d = mux2(b->mmu_en.q, w[0], AND(store_en, p->sel_mmuen));
+    b->umode.d = OR(b->umode.d, AND(AND(store_en, p->sel_mode), w[0]));
 
     dma_set_addr(&b->dma, p->vaddr);
     dma_set_cpu_data(&b->dma, w);
@@ -297,8 +301,10 @@ void memsys_commit(board_t *b, mem_port_t *p, bit enable) {
 
 void board_exceptions(board_t *b, bit *epc, bit fault, bit undefined, bit irq_allowed,
                       bit reti_in, bit run, exc_outcome_t *out) {
+    bit user = b->umode.q;
+    bit reti = AND(reti_in, NOT(user));
     bit fault_r = AND(fault, run);
-    bit undef_r = AND(undefined, run);
+    bit undef_r = AND(OR(undefined, AND(reti_in, user)), run);
     bit irq_req = AND(AND(b->pic.int_request, irq_allowed), AND(run, NOR(fault_r, undef_r)));
     exc_set_addr_error(&b->exc, fault_r);
     exc_set_undefined(&b->exc, undef_r);
@@ -308,11 +314,13 @@ void board_exceptions(board_t *b, bit *epc, bit fault, bit undefined, bit irq_al
     out->take = AND(exc_get_exception_taken(&b->exc), run);
     out->ok = AND(run, NOT(out->take));
     intc_set_service(&b->pic.ic, AND(out->take, irq_req), b->pic.int_vector);
-    out->reti = AND(reti_in, out->ok);
+    out->reti = AND(reti, out->ok);
     exc_set_return(&b->exc, out->reti);
     bit ack_num[3], svc_any;
     intc_get_top_service(&b->pic.ic, ack_num, &svc_any);
     intc_set_ack(&b->pic.ic, AND(out->reti, svc_any), ack_num);
+    b->umode.d = mux2(mux2(user, b->uprev.q, out->reti), 0, out->take);
+    b->uprev.d = mux2(b->uprev.q, user, out->take);
 }
 
 bit memsys_bus_hold(board_t *b) {
@@ -391,6 +399,8 @@ void memsys_clock_fall(board_t *b) {
     l1_clock_fall(&b->l1);
     l2_clock_fall(&b->l2);
     dff_clock_fall(&b->mmu_en);
+    dff_clock_fall(&b->umode);
+    dff_clock_fall(&b->uprev);
 }
 
 void memsys_clock_rise(board_t *b) {
@@ -412,6 +422,8 @@ void memsys_clock_rise(board_t *b) {
     l1_clock_rise(&b->l1);
     l2_clock_rise(&b->l2);
     dff_clock_rise(&b->mmu_en);
+    dff_clock_rise(&b->umode);
+    dff_clock_rise(&b->uprev);
     uart_tx_propagate(&b->uart);
     display_propagate(&b->disp);
     gpio_propagate(&b->gpio);

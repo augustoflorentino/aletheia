@@ -29,7 +29,7 @@ typedef struct {
     uint32_t pc;
     int halted;
     uint32_t epc;
-    int in_exception, in_service;
+    int in_exception, in_service, user, user_prev;
     uint32_t pic_mask;
     int mmu_enabled, mmu_allowed;
     uint32_t pte[16];

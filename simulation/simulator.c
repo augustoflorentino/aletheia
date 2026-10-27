@@ -190,6 +190,7 @@ int simulator_open_vcd(simulator_t *sim, const char *filename) {
     vcd_add_signal(&sim->vcd, "irq", 1, &b->pic.int_request);
     vcd_add_signal(&sim->vcd, "in_exception", 1, &b->exc.in_exception.q);
     vcd_add_signal(&sim->vcd, "mmu_en", 1, &b->mmu_en.q);
+    vcd_add_signal(&sim->vcd, "user_mode", 1, &b->umode.q);
     vcd_begin_module(&sim->vcd, "regs");
     for (int i = 1; i < 32; i++) {
         char name[8];

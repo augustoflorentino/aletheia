@@ -18,6 +18,7 @@ typedef struct {
     bit sel_picmask;
     bit sel_ptfill;
     bit sel_mmuen;
+    bit sel_mode;
     bit sel_dma;
     bit is_dram;
     bit l1_hit;

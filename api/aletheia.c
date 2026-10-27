@@ -344,6 +344,7 @@ unsigned alt_signals(const alt_machine_t *machine) {
     s |= (b->pic.int_request & 1) ? ALT_SIGNAL_IRQ : 0;
     s |= (b->exc.in_exception.q & 1) ? ALT_SIGNAL_EXCEPTION : 0;
     s |= (b->mmu_en.q & 1) ? ALT_SIGNAL_MMU : 0;
+    s |= (b->umode.q & 1) ? ALT_SIGNAL_USER : 0;
     return s;
 }
 

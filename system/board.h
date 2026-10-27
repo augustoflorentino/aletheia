@@ -67,6 +67,8 @@ typedef struct {
     l2_cache_t l2;
     d_flip_flop_t prescale[3];
     d_flip_flop_t mmu_en;
+    d_flip_flop_t umode;
+    d_flip_flop_t uprev;
 
     d_flip_flop_t mc_state[3];
     instruction_register_t ir;

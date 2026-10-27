@@ -82,6 +82,8 @@ void board_init(board_t *board) {
     mmu_init(&board->mmu);
     l1_init(&board->l1);
     dff_reset(&board->mmu_en);
+    dff_reset(&board->umode);
+    dff_reset(&board->uprev);
 
     dff_reset(&board->mc_state[0]);
     dff_reset(&board->mc_state[1]);
@@ -139,6 +141,8 @@ void board_reset(board_t *board) {
     l2_reset(&board->l2);
     dff_reset(&board->prescale[0]); dff_reset(&board->prescale[1]); dff_reset(&board->prescale[2]);
     dff_reset(&board->mmu_en);
+    dff_reset(&board->umode);
+    dff_reset(&board->uprev);
 
     dff_reset(&board->mc_state[0]);
     dff_reset(&board->mc_state[1]);

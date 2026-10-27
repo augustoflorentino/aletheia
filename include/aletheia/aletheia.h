@@ -66,6 +66,7 @@ typedef enum {
 #define ALT_SIGNAL_IRQ       0x1u
 #define ALT_SIGNAL_EXCEPTION 0x2u
 #define ALT_SIGNAL_MMU       0x4u
+#define ALT_SIGNAL_USER      0x8u
 
 #define ALT_ROM_WORDS        1024u
 #define ALT_DISPLAY_CHARS    8u

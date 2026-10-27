@@ -26,14 +26,14 @@ static int is_io(uint32_t va) {
 }
 
 static int translate(iss_t *c, uint32_t va, uint32_t *pa) {
-    int mapping = c->mmu_enabled && c->mmu_allowed;
+    int mapping = (c->mmu_enabled && c->mmu_allowed) || c->user;
     *pa = va;
     if (!mapping) return 0;
     uint32_t vpn = (va >> 4) & 0xFFFFFu;
     uint32_t pte = vpn < 16 && (va >> 24) == 0 ? c->pte[vpn] : 0;
     if (!(pte & (1u << 24))) return 1;
     *pa = ((pte & 0xFFFFFu) << 4) | (va & 15u);
-    return 0;
+    return c->user && !(pte & (1u << 19));
 }
 
 static void dma_start(iss_t *c) {
@@ -80,6 +80,7 @@ static void sys_write(iss_t *c, uint32_t r, uint32_t v) {
     if (r == 4) c->pic_mask = v & 0xFFu;
     if (r == 5) c->pte[(v >> 20) & 15u] = v & 0x1FFFFFFu;
     if (r == 6) c->mmu_enabled = (int)(v & 1u);
+    if (r == 7 && (v & 1u)) c->user = 1;
     if (r == 8) c->dma.src = v & 0xFFFFu;
     if (r == 9) c->dma.dst = v & 0xFFFFu;
     if (r == 10) c->dma.count = v & 0xFFFFu;
@@ -98,6 +99,8 @@ static void io_write(iss_t *c, uint32_t va, uint32_t v) {
 static access_t mem_access(iss_t *c, uint32_t va, uint32_t wdata, int write) {
     access_t a = {0, 0};
     if (is_io(va)) {
+        a.fault = c->user;
+        if (a.fault) return a;
         if (write) io_write(c, va, wdata);
         else a.value = io_read(c, va);
         return a;
@@ -113,6 +116,8 @@ static access_t mem_access(iss_t *c, uint32_t va, uint32_t wdata, int write) {
 static void take(iss_t *c, uint32_t vector) {
     if (!c->in_exception) c->epc = c->pc;
     c->in_exception = 1;
+    c->user_prev = c->user;
+    c->user = 0;
     c->pc = vector;
 }
 
@@ -157,6 +162,7 @@ static void reti(iss_t *c, uint32_t *next) {
     *next = c->epc;
     c->in_exception = 0;
     c->in_service = 0;
+    c->user = c->user_prev;
 }
 
 void iss_step(iss_t *c, const uint32_t *rom) {
@@ -232,7 +238,8 @@ void iss_step(iss_t *c, const uint32_t *rom) {
             next = in & 0x3FFFFFFu;
             break;
         case OP_RETI:
-            reti(c, &next);
+            undefined = c->user;
+            if (!c->user) reti(c, &next);
             break;
         case OP_HALT: c->halted = 1; return;
         default: undefined = 1; break;
