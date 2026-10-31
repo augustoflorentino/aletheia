@@ -277,10 +277,16 @@ static void commit_system(board_t *b, mem_port_t *p, bit store_en) {
     b->mmu_en.d = mux2(b->mmu_en.q, w[0], AND(store_en, p->sel_mmuen));
     b->umode.d = OR(b->umode.d, AND(AND(store_en, p->sel_mode), w[0]));
 
-    dma_set_addr(&b->dma, p->vaddr);
-    dma_set_cpu_data(&b->dma, w);
-    dma_set_cs(&b->dma, p->sel_dma);
-    dma_set_write(&b->dma, AND(store_en, p->sel_dma));
+    bit slot = b->slot_sel;
+    bit dma_addr[3], dma_data[32];
+    dma_addr[0] = mux2(p->vaddr[0], b->slot_addr[0], slot);
+    dma_addr[1] = mux2(p->vaddr[1], b->slot_addr[1], slot);
+    dma_addr[2] = mux2(p->vaddr[2], b->slot_addr[2], slot);
+    mux2_32(w, b->slot_data, slot, dma_data);
+    dma_set_addr(&b->dma, dma_addr);
+    dma_set_cpu_data(&b->dma, dma_data);
+    dma_set_cs(&b->dma, OR(p->sel_dma, slot));
+    dma_set_write(&b->dma, OR(AND(store_en, p->sel_dma), slot));
 
     mmu_set_pt_pfn(&b->mmu, w);
     mmu_set_pt_fill(&b->mmu, AND(store_en, p->sel_ptfill));

@@ -195,6 +195,14 @@ void alt_power_cut(alt_machine_t *machine, uint64_t at_cycle, unsigned long off_
     machine->sim.power_off_cycles = (long)off_cycles;
 }
 
+void alt_slot_dma(alt_machine_t *machine, uint64_t at_cycle, uint32_t src, uint32_t dst, uint32_t count) {
+    machine->sim.slot_at = at_cycle;
+    machine->sim.slot_regs[0] = src;
+    machine->sim.slot_regs[1] = dst;
+    machine->sim.slot_regs[2] = count;
+    machine->sim.slot_regs[3] = 1;
+}
+
 alt_status_t alt_break_add(alt_machine_t *machine, uint32_t pc) {
     return debugger_add_breakpoint(&machine->sim.debugger, pc) >= 0 ? ALT_OK : ALT_ERR_FULL;
 }

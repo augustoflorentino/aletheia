@@ -28,6 +28,8 @@ typedef struct {
     long dram_leak;
     unsigned long long power_off_at;
     long power_off_cycles;
+    unsigned long long slot_at;
+    unsigned slot_regs[3];
     const char *vcd_file;
     const char *asm_file;
     const char *input;
@@ -177,6 +179,9 @@ static void print_usage(const char *prog) {
     printf("      --power-off C:D Cut the power after cycle C for D cycles, then\n");
     printf("                      power on again (DRAM decays, SRAM is lost)\n");
     printf("      --dram-leak N   DRAM leak period in cycles (default 64, 0 = never)\n");
+    printf("      --dma-inject C:SRC:DST:N\n");
+    printf("                      A device on the expansion slot programs the DMA\n");
+    printf("                      from cycle C (copies N words SRC -> DST, physical)\n");
     printf("Jumpers (sampled at reset):\n");
     printf("      --l2            Enable the L2 cache\n");
     printf("      --no-l1         Disable the L1 cache\n");
@@ -232,6 +237,17 @@ static int parse_power_off(options_t *o, const char *val) {
     o->power_off_at = strtoull(val, &end, 10);
     o->power_off_cycles = *end == ':' ? strtol(end + 1, &end, 10) : 0;
     if (*end != '\0' || o->power_off_at == 0 || o->power_off_cycles <= 0) return fail("power cut", val, " (CYCLE:DURATION)");
+    return 0;
+}
+
+static int parse_dma(options_t *o, const char *val) {
+    unsigned long long c;
+    int src, dst, n;
+    if (sscanf(val, "%llu:%i:%i:%i", &c, &src, &dst, &n) != 4 || c == 0) return fail("DMA injection", val, " (CYCLE:SRC:DST:N)");
+    o->slot_at = c;
+    o->slot_regs[0] = (unsigned)src;
+    o->slot_regs[1] = (unsigned)dst;
+    o->slot_regs[2] = (unsigned)n;
     return 0;
 }
 
@@ -299,6 +315,7 @@ static int parse_value(options_t *o, const char *opt, const char *val) {
     if (is_opt(opt, "-a", "--asm")) return set_path(&o->asm_file, val);
     if (is_opt(opt, "-i", "--input")) return set_path(&o->input, val);
     if (strcmp(opt, "--power-off") == 0) return parse_power_off(o, val);
+    if (strcmp(opt, "--dma-inject") == 0) return parse_dma(o, val);
     if (strcmp(opt, "--timer-div") == 0) return parse_timer_div(o, val);
     if (strcmp(opt, "--dram-leak") == 0) return parse_dram_leak(o, val);
     if (is_opt(opt, "-f", "--fault")) return parse_fault(o, val);
@@ -374,6 +391,11 @@ static int configure(alt_machine_t *m, const options_t *o, int quiet) {
     return 0;
 }
 
+static int arm_files(alt_machine_t *m, const options_t *o) {
+    if (o->slot_at) alt_slot_dma(m, o->slot_at, o->slot_regs[0], o->slot_regs[1], o->slot_regs[2]);
+    return 0;
+}
+
 static int assemble(const char *path, uint32_t *rom, size_t *out_count) {
     char error[512];
     if (alt_assemble_file(path, rom, ALT_ROM_WORDS, out_count, error, sizeof error) == ALT_OK) return 0;
@@ -386,6 +408,7 @@ static int run_interactive(alt_machine_t *m, const options_t *o) {
     size_t count;
     if (configure(m, o, 1) || assemble(o->asm_file ? o->asm_file : BOOT_ROM, rom, &count)) return 1;
     alt_load_rom(m, rom, count);
+    if (arm_files(m, o)) return 1;
     long limit = o->cycles_given ? o->max_cycles : 0;
     return o->panel ? run_panel(m, rom, limit) : run_boot(m, limit);
 }
@@ -437,7 +460,7 @@ static int run_batch(alt_machine_t *m, const options_t *o) {
     printf("===========================================\n");
     printf("  ALETHEIA - Gate-Level Hardware Simulator\n");
     printf("===========================================\n\n");
-    if (configure(m, o, 0) || load_program(m, o) || arm_debug(m, o)) return 1;
+    if (configure(m, o, 0) || load_program(m, o) || arm_files(m, o) || arm_debug(m, o)) return 1;
     printf("Starting simulation (%ld cycles)...\n\n", o->max_cycles);
     alt_power_on(m);
     return finish(m, o, alt_run(m, (uint64_t)o->max_cycles));

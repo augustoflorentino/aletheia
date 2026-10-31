@@ -105,6 +105,7 @@ ALT_API alt_status_t alt_add_fault(alt_machine_t *machine, uint64_t cycle, alt_f
                                    unsigned index, unsigned bit);
 ALT_API alt_status_t alt_add_fault_spec(alt_machine_t *machine, const char *spec);
 ALT_API void alt_power_cut(alt_machine_t *machine, uint64_t at_cycle, unsigned long off_cycles);
+ALT_API void alt_slot_dma(alt_machine_t *machine, uint64_t at_cycle, uint32_t src, uint32_t dst, uint32_t count);
 ALT_API alt_status_t alt_break_add(alt_machine_t *machine, uint32_t pc);
 
 ALT_API alt_status_t alt_vcd_open(alt_machine_t *machine, const char *path);

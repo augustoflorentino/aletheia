@@ -79,6 +79,9 @@ typedef struct {
     register_32_t alu_out;
 
     dma_controller_t dma;
+    bit slot_sel;
+    bit slot_addr[3];
+    bit slot_data[32];
     arbiter_t arb;
 
     if_id_reg_t if_id;

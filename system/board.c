@@ -95,6 +95,7 @@ void board_init(board_t *board) {
     reg32_init(&board->reg_b);
     reg32_init(&board->alu_out);
     dma_init(&board->dma);
+    board->slot_sel = 0;
     l2_init(&board->l2);
     dff_reset(&board->prescale[0]); dff_reset(&board->prescale[1]); dff_reset(&board->prescale[2]);
     dram_init(&board->dram);

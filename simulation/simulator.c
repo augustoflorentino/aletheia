@@ -16,6 +16,7 @@ void simulator_init(simulator_t *sim) {
     sim->physics_ticks = 0;
     sim->power_off_at = 0;
     sim->power_off_cycles = 0;
+    sim->slot_at = 0;
     sim->fault_count = 0;
     sim->on_output = NULL;
     sim->output_ctx = NULL;
@@ -72,6 +73,17 @@ static void inject_faults(simulator_t *sim) {
     for (int i = 0; i < sim->fault_count; i++) {
         if (sim->faults[i].cycle == sim->cycles) fault_apply(&sim->board, &sim->faults[i]);
     }
+}
+
+static void slot_tick(simulator_t *sim) {
+    board_t *b = &sim->board;
+    unsigned long long k = sim->cycles - sim->slot_at;
+    b->slot_sel = (bit)(sim->slot_at > 0 && sim->cycles >= sim->slot_at && k < 4);
+    if (!b->slot_sel) return;
+    b->slot_addr[0] = (bit)(k & 1);
+    b->slot_addr[1] = (bit)((k >> 1) & 1);
+    b->slot_addr[2] = 0;
+    for (int i = 0; i < 32; i++) b->slot_data[i] = (bit)((sim->slot_regs[k] >> i) & 1);
 }
 
 static void physics_tick(simulator_t *sim) {
@@ -223,6 +235,7 @@ void simulator_run_cycle(simulator_t *sim) {
         keyboard_tick(sim);
     }
     inject_faults(sim);
+    slot_tick(sim);
     physics_tick(sim);
     simulator_clock_tick(sim);
     if (sim->console_enabled) {

@@ -44,6 +44,8 @@ typedef struct {
     unsigned long long physics_ticks;
     unsigned long long power_off_at;
     long power_off_cycles;
+    unsigned long long slot_at;
+    unsigned slot_regs[4];
     double pace_start;
     sim_time_t pace_cycles;
 } simulator_t;

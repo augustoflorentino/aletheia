@@ -150,7 +150,7 @@ clean:
 check-compliance:
 	@python3 tools/check_hw.py
 
-DEMOS = demos/counter.asm demos/fib.asm demos/sort.asm demos/pin.asm demos/dma.asm demos/user.asm
+DEMOS = demos/counter.asm demos/fib.asm demos/sort.asm demos/pin.asm demos/dma.asm demos/user.asm demos/dmaattack.asm
 
 demos: aletheia
 	@mkdir -p build
