@@ -1,5 +1,6 @@
 #include "../include/aletheia/aletheia.h"
 #include "../simulation/simulation.h"
+#include "../simulation/snapshot.h"
 #include "../simulation/refcheck.h"
 #include "../isa/isa.h"
 #include <stdlib.h>
@@ -401,6 +402,51 @@ alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t
 size_t alt_output(const alt_machine_t *machine, const char **out_bytes) {
     if (out_bytes) *out_bytes = machine->out;
     return machine->out_len;
+}
+
+size_t alt_snapshot_size(void) {
+    return snapshot_size();
+}
+
+alt_status_t alt_snapshot_save(const alt_machine_t *machine, void *out_buf, size_t out_buf_len) {
+    if (!out_buf) return ALT_ERR_ARG;
+    return snapshot_write(&machine->sim, out_buf, out_buf_len) == 0 ? ALT_OK : ALT_ERR_ARG;
+}
+
+alt_status_t alt_snapshot_load(alt_machine_t *machine, const void *buf, size_t buf_len) {
+    if (!buf) return ALT_ERR_ARG;
+    return snapshot_read(&machine->sim, buf, buf_len) == 0 ? ALT_OK : ALT_ERR_FORMAT;
+}
+
+alt_status_t alt_snapshot_save_file(const alt_machine_t *machine, const char *path) {
+    if (!path) return ALT_ERR_ARG;
+    size_t size = snapshot_size();
+    unsigned char *buf = machine_alloc(machine, size);
+    if (!buf) return ALT_ERR_NOMEM;
+    snapshot_write(&machine->sim, buf, size);
+    FILE *f = fopen(path, "wb");
+    int ok = f && fwrite(buf, size, 1, f) == 1;
+    ok = f && fclose(f) == 0 && ok;
+    machine_free(machine, buf);
+    return ok ? ALT_OK : ALT_ERR_IO;
+}
+
+static alt_status_t read_image(FILE *f, unsigned char *buf, size_t size) {
+    if (fread(buf, size, 1, f) != 1) return ALT_ERR_FORMAT;
+    return fgetc(f) == EOF ? ALT_OK : ALT_ERR_FORMAT;
+}
+
+alt_status_t alt_snapshot_load_file(alt_machine_t *machine, const char *path) {
+    if (!path) return ALT_ERR_ARG;
+    FILE *f = fopen(path, "rb");
+    if (!f) return ALT_ERR_IO;
+    size_t size = snapshot_size();
+    unsigned char *buf = machine_alloc(machine, size);
+    alt_status_t st = buf ? read_image(f, buf, size) : ALT_ERR_NOMEM;
+    fclose(f);
+    if (st == ALT_OK) st = alt_snapshot_load(machine, buf, size);
+    machine_free(machine, buf);
+    return st;
 }
 
 alt_status_t alt_ref_check(alt_machine_t *machine, uint64_t max_steps, FILE *log, unsigned *out_differences) {

@@ -34,7 +34,10 @@ typedef struct {
     const char *vcd_file;
     const char *asm_file;
     const char *input;
+    const char *load_path;
     const char *power_path;
+    const char *save_path;
+    unsigned long long save_at;
     const char *faults[MAX_FAULTS];
     int fault_count;
     uint32_t breakpoints[MAX_BREAKPOINTS];
@@ -185,6 +188,8 @@ static void print_usage(const char *prog) {
     printf("      --dma-inject C:SRC:DST:N\n");
     printf("                      A device on the expansion slot programs the DMA\n");
     printf("                      from cycle C (copies N words SRC -> DST, physical)\n");
+    printf("      --save C:FILE   Save a snapshot of the machine after cycle C\n");
+    printf("      --load FILE     Start from a snapshot instead of power-on state\n");
     printf("Jumpers (sampled at reset):\n");
     printf("      --ref           Also run the program on the reference model (ISS) and\n");
     printf("                      compare UART output, registers, RAM and halt\n");
@@ -257,6 +262,14 @@ static int parse_dma(options_t *o, const char *val) {
     return 0;
 }
 
+static int parse_save(options_t *o, const char *val) {
+    char *end;
+    o->save_at = strtoull(val, &end, 10);
+    if (*end != ':' || end[1] == '\0' || o->save_at == 0) return fail("snapshot spec", val, " (CYCLE:FILE)");
+    o->save_path = end + 1;
+    return 0;
+}
+
 static int parse_timer_div(options_t *o, const char *val) {
     int d = atoi(val);
     if (d != 1 && d != 2 && d != 4 && d != 8) return fail("timer divider", val, " (1, 2, 4 or 8)");
@@ -321,8 +334,10 @@ static int parse_value(options_t *o, const char *opt, const char *val) {
     if (is_opt(opt, "-a", "--asm")) return set_path(&o->asm_file, val);
     if (is_opt(opt, "-i", "--input")) return set_path(&o->input, val);
     if (strcmp(opt, "--power") == 0) return set_path(&o->power_path, val);
+    if (strcmp(opt, "--load") == 0) return set_path(&o->load_path, val);
     if (strcmp(opt, "--power-off") == 0) return parse_power_off(o, val);
     if (strcmp(opt, "--dma-inject") == 0) return parse_dma(o, val);
+    if (strcmp(opt, "--save") == 0) return parse_save(o, val);
     if (strcmp(opt, "--timer-div") == 0) return parse_timer_div(o, val);
     if (strcmp(opt, "--dram-leak") == 0) return parse_dram_leak(o, val);
     if (is_opt(opt, "-f", "--fault")) return parse_fault(o, val);
@@ -374,6 +389,9 @@ static void on_cycle(void *ctx, alt_machine_t *m) {
     const options_t *o = ctx;
     uint64_t c = alt_cycles(m);
     if (o->verbose && c % 1000 == 0 && !alt_halted(m)) printf("Cycle: %llu\n", (unsigned long long)c);
+    if (o->save_path && c == o->save_at && alt_snapshot_save_file(m, o->save_path) != ALT_OK) {
+        fprintf(stderr, "failed to save snapshot: %s\n", o->save_path);
+    }
 }
 
 static int arm_faults(alt_machine_t *m, const options_t *o, int quiet) {
@@ -399,6 +417,10 @@ static int configure(alt_machine_t *m, const options_t *o, int quiet) {
 }
 
 static int arm_files(alt_machine_t *m, const options_t *o) {
+    if (o->load_path && alt_snapshot_load_file(m, o->load_path) != ALT_OK) {
+        fprintf(stderr, "cannot load snapshot %s (missing, corrupt or built with another MEM)\n", o->load_path);
+        return -1;
+    }
     if (o->power_path && alt_power_trace_open(m, o->power_path) != ALT_OK) {
         fprintf(stderr, "cannot write power trace: %s\n", o->power_path);
         return -1;
@@ -448,6 +470,7 @@ static int load_program(alt_machine_t *m, const options_t *o) {
 }
 
 static int arm_debug(alt_machine_t *m, const options_t *o) {
+    if (o->load_path) printf("Restored snapshot: %s (cycle %llu)\n", o->load_path, (unsigned long long)alt_cycles(m));
     for (int i = 0; i < o->breakpoint_count; i++) alt_break_add(m, o->breakpoints[i]);
     if (!o->vcd_file) return 0;
     printf("Writing waveform: %s\n", o->vcd_file);

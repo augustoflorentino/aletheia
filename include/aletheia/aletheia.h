@@ -132,6 +132,12 @@ ALT_API unsigned alt_signals(const alt_machine_t *machine);
 ALT_API alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t *out_value, int *out_valid);
 ALT_API size_t alt_output(const alt_machine_t *machine, const char **out_bytes);
 
+ALT_API size_t alt_snapshot_size(void);
+ALT_API alt_status_t alt_snapshot_save(const alt_machine_t *machine, void *out_buf, size_t out_buf_len);
+ALT_API alt_status_t alt_snapshot_load(alt_machine_t *machine, const void *buf, size_t buf_len);
+ALT_API alt_status_t alt_snapshot_save_file(const alt_machine_t *machine, const char *path);
+ALT_API alt_status_t alt_snapshot_load_file(alt_machine_t *machine, const char *path);
+
 ALT_API alt_status_t alt_ref_check(alt_machine_t *machine, uint64_t max_steps,
                                    FILE *log, unsigned *out_differences);
 
