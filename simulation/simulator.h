@@ -8,6 +8,7 @@
 #include "waveform.h"
 #include "debugger.h"
 #include "fault.h"
+#include "power_trace.h"
 
 #define SIM_KEY_QUEUE 256
 
@@ -44,6 +45,7 @@ typedef struct {
     unsigned long long physics_ticks;
     unsigned long long power_off_at;
     long power_off_cycles;
+    power_trace_t *power;
     unsigned long long slot_at;
     unsigned slot_regs[4];
     double pace_start;

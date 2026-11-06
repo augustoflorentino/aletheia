@@ -34,6 +34,7 @@ typedef struct {
     const char *vcd_file;
     const char *asm_file;
     const char *input;
+    const char *power_path;
     const char *faults[MAX_FAULTS];
     int fault_count;
     uint32_t breakpoints[MAX_BREAKPOINTS];
@@ -180,6 +181,7 @@ static void print_usage(const char *prog) {
     printf("      --power-off C:D Cut the power after cycle C for D cycles, then\n");
     printf("                      power on again (DRAM decays, SRAM is lost)\n");
     printf("      --dram-leak N   DRAM leak period in cycles (default 64, 0 = never)\n");
+    printf("      --power FILE    Write the state toggles of every cycle (CSV)\n");
     printf("      --dma-inject C:SRC:DST:N\n");
     printf("                      A device on the expansion slot programs the DMA\n");
     printf("                      from cycle C (copies N words SRC -> DST, physical)\n");
@@ -318,6 +320,7 @@ static int parse_value(options_t *o, const char *opt, const char *val) {
     if (is_opt(opt, "-w", "--vcd")) return set_path(&o->vcd_file, val);
     if (is_opt(opt, "-a", "--asm")) return set_path(&o->asm_file, val);
     if (is_opt(opt, "-i", "--input")) return set_path(&o->input, val);
+    if (strcmp(opt, "--power") == 0) return set_path(&o->power_path, val);
     if (strcmp(opt, "--power-off") == 0) return parse_power_off(o, val);
     if (strcmp(opt, "--dma-inject") == 0) return parse_dma(o, val);
     if (strcmp(opt, "--timer-div") == 0) return parse_timer_div(o, val);
@@ -396,6 +399,10 @@ static int configure(alt_machine_t *m, const options_t *o, int quiet) {
 }
 
 static int arm_files(alt_machine_t *m, const options_t *o) {
+    if (o->power_path && alt_power_trace_open(m, o->power_path) != ALT_OK) {
+        fprintf(stderr, "cannot write power trace: %s\n", o->power_path);
+        return -1;
+    }
     if (o->slot_at) alt_slot_dma(m, o->slot_at, o->slot_regs[0], o->slot_regs[1], o->slot_regs[2]);
     return 0;
 }

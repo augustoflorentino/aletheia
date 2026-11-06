@@ -104,6 +104,7 @@ alt_status_t alt_machine_create(const alt_allocator_t *allocator, alt_machine_t 
 void alt_machine_destroy(alt_machine_t *machine) {
     if (!machine) return;
     alt_vcd_close(machine);
+    alt_power_trace_close(machine);
     machine_free(machine, machine);
 }
 
@@ -226,6 +227,26 @@ alt_status_t alt_vcd_open(alt_machine_t *machine, const char *path) {
 
 void alt_vcd_close(alt_machine_t *machine) {
     simulator_close_vcd(&machine->sim);
+}
+
+alt_status_t alt_power_trace_open(alt_machine_t *machine, const char *path) {
+    if (!path) return ALT_ERR_ARG;
+    alt_power_trace_close(machine);
+    power_trace_t *pt = machine_alloc(machine, sizeof *pt);
+    if (!pt) return ALT_ERR_NOMEM;
+    if (power_trace_open(pt, path, &machine->sim.board) != 0) {
+        machine_free(machine, pt);
+        return ALT_ERR_IO;
+    }
+    machine->sim.power = pt;
+    return ALT_OK;
+}
+
+void alt_power_trace_close(alt_machine_t *machine) {
+    if (!machine->sim.power) return;
+    power_trace_close(machine->sim.power);
+    machine_free(machine, machine->sim.power);
+    machine->sim.power = NULL;
 }
 
 void alt_power_on(alt_machine_t *machine) {

@@ -16,6 +16,7 @@ void simulator_init(simulator_t *sim) {
     sim->physics_ticks = 0;
     sim->power_off_at = 0;
     sim->power_off_cycles = 0;
+    sim->power = NULL;
     sim->slot_at = 0;
     sim->fault_count = 0;
     sim->on_output = NULL;
@@ -249,6 +250,7 @@ void simulator_run_cycle(simulator_t *sim) {
     sim->vcd_clk = 0;
     vcd_update(&sim->vcd, t + sim->timing.clock_period / 2);
 
+    if (sim->power) power_trace_sample(sim->power, &sim->board, sim->cycles);
     sim->cycles++;
     if (sim->power_off_cycles > 0 && sim->cycles == sim->power_off_at) {
         simulator_power_cycle(sim, sim->power_off_cycles);

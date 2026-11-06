@@ -111,6 +111,8 @@ ALT_API alt_status_t alt_break_add(alt_machine_t *machine, uint32_t pc);
 
 ALT_API alt_status_t alt_vcd_open(alt_machine_t *machine, const char *path);
 ALT_API void alt_vcd_close(alt_machine_t *machine);
+ALT_API alt_status_t alt_power_trace_open(alt_machine_t *machine, const char *path);
+ALT_API void alt_power_trace_close(alt_machine_t *machine);
 
 ALT_API void alt_power_on(alt_machine_t *machine);
 ALT_API void alt_step(alt_machine_t *machine);
