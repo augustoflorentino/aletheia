@@ -21,6 +21,7 @@ typedef struct {
     int verbose;
     int boot;
     int panel;
+    int ref_check;
     alt_arch_t arch;
     long hz;
     unsigned straps;
@@ -183,6 +184,8 @@ static void print_usage(const char *prog) {
     printf("                      A device on the expansion slot programs the DMA\n");
     printf("                      from cycle C (copies N words SRC -> DST, physical)\n");
     printf("Jumpers (sampled at reset):\n");
+    printf("      --ref           Also run the program on the reference model (ISS) and\n");
+    printf("                      compare UART output, registers, RAM and halt\n");
     printf("      --l2            Enable the L2 cache\n");
     printf("      --no-l1         Disable the L1 cache\n");
     printf("      --no-mmu        Tie the MMU off (writes to its enable are ignored)\n");
@@ -214,6 +217,7 @@ static int fail(const char *what, const char *val, const char *hint) {
 
 static int parse_flag(options_t *o, const char *opt) {
     if (strcmp(opt, "--panel") == 0) o->panel = 1;
+    else if (strcmp(opt, "--ref") == 0) o->ref_check = 1;
     else if (strcmp(opt, "--boot") == 0) o->boot = 1;
     else if (strcmp(opt, "--l2") == 0) o->straps |= ALT_STRAP_L2;
     else if (strcmp(opt, "--no-l1") == 0) o->straps &= ~ALT_STRAP_L1;
@@ -452,6 +456,9 @@ static int finish(alt_machine_t *m, const options_t *o, alt_stop_t stop) {
     printf("\nSimulation finished.\n");
     printf("Cycles executed: %llu\n", (unsigned long long)alt_cycles(m));
     dump_state(m);
+    unsigned diffs = 0;
+    if (o->ref_check) alt_ref_check(m, (uint64_t)o->max_cycles, stdout, &diffs);
+    if (diffs && status == 0) status = 4;
     if (o->vcd_file) printf("Waveform saved to: %s\n", o->vcd_file);
     return status;
 }

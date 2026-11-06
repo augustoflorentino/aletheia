@@ -1,7 +1,7 @@
 #include "../include/aletheia/aletheia.h"
 #include "../simulation/simulation.h"
+#include "../simulation/refcheck.h"
 #include "../isa/isa.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,8 +12,11 @@ struct alt_machine {
     simulator_t sim;
     alt_allocator_t allocator;
     bit straps[STRAP_COUNT];
+    uint32_t rom[ALT_ROM_WORDS];
     char out[ALT_OUTPUT_MAX];
     size_t out_len;
+    char keys[ISS_KEYS_MAX];
+    size_t keys_len;
     alt_output_fn on_output;
     void *output_ctx;
     alt_cycle_fn on_cycle;
@@ -32,6 +35,10 @@ static void default_free(void *ctx, void *ptr) {
 }
 
 static const alt_allocator_t default_allocator = {default_alloc, default_free, NULL};
+
+static void *machine_alloc(const alt_machine_t *m, size_t size) {
+    return m->allocator.alloc(m->allocator.ctx, size);
+}
 
 static void machine_free(const alt_machine_t *m, void *ptr) {
     if (ptr) m->allocator.free(m->allocator.ctx, ptr);
@@ -164,16 +171,19 @@ alt_status_t alt_disassemble(uint32_t word, char *out_text, size_t out_text_len)
 
 alt_status_t alt_load_rom(alt_machine_t *machine, const uint32_t *words, size_t words_len) {
     if ((!words && words_len) || words_len > ALT_ROM_WORDS) return ALT_ERR_ARG;
+    memset(machine->rom, 0, sizeof machine->rom);
     for (size_t i = 0; i < words_len; i++) {
         bit bits[32];
         bits_of(words[i], bits, 32);
         rom_load_at(&machine->sim.board.rom, (unsigned)i, bits);
+        machine->rom[i] = words[i];
     }
     return ALT_OK;
 }
 
 alt_status_t alt_send_key(alt_machine_t *machine, unsigned char key) {
     if (!simulator_send_key(&machine->sim, key)) return ALT_ERR_FULL;
+    if (machine->keys_len < ISS_KEYS_MAX - 1) machine->keys[machine->keys_len++] = (char)key;
     return ALT_OK;
 }
 
@@ -370,4 +380,18 @@ alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t
 size_t alt_output(const alt_machine_t *machine, const char **out_bytes) {
     if (out_bytes) *out_bytes = machine->out;
     return machine->out_len;
+}
+
+alt_status_t alt_ref_check(alt_machine_t *machine, uint64_t max_steps, FILE *log, unsigned *out_differences) {
+    if (!out_differences) return ALT_ERR_ARG;
+    iss_t *ref = machine_alloc(machine, sizeof *ref);
+    if (!ref) return ALT_ERR_NOMEM;
+    char keys[ISS_KEYS_MAX];
+    memcpy(keys, machine->keys, machine->keys_len);
+    keys[machine->keys_len] = '\0';
+    int diffs = refcheck_compare(&machine->sim, ref, machine->out, (int)machine->out_len, machine->rom,
+                                 keys, max_steps, log);
+    machine_free(machine, ref);
+    *out_differences = (unsigned)diffs;
+    return ALT_OK;
 }

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,6 +129,9 @@ ALT_API unsigned char alt_display_char(alt_machine_t *machine, unsigned index);
 ALT_API unsigned alt_signals(const alt_machine_t *machine);
 ALT_API alt_status_t alt_stage(const alt_machine_t *machine, alt_stage_t stage, uint32_t *out_value, int *out_valid);
 ALT_API size_t alt_output(const alt_machine_t *machine, const char **out_bytes);
+
+ALT_API alt_status_t alt_ref_check(alt_machine_t *machine, uint64_t max_steps,
+                                   FILE *log, unsigned *out_differences);
 
 #ifdef __cplusplus
 }

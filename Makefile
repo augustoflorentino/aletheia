@@ -39,7 +39,7 @@ SYSTEM_SRCS = system/power.c system/config.c system/memsys.c system/board.c syst
 
 SIMULATION_SRCS = simulation/scheduler.c \
                   simulation/timing.c simulation/waveform.c simulation/debugger.c \
-                  simulation/simulator.c simulation/fault.c
+                  simulation/simulator.c simulation/fault.c simulation/refcheck.c
 
 REF_SRCS = ref/iss.c
 ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
