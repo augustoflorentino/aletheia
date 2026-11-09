@@ -31,6 +31,8 @@ typedef struct {
     long power_off_cycles;
     unsigned long long slot_at;
     unsigned slot_regs[3];
+    long stuck_gate;
+    int stuck_value;
     const char *vcd_file;
     const char *asm_file;
     const char *input;
@@ -185,6 +187,8 @@ static void print_usage(const char *prog) {
     printf("                      power on again (DRAM decays, SRAM is lost)\n");
     printf("      --dram-leak N   DRAM leak period in cycles (default 64, 0 = never)\n");
     printf("      --power FILE    Write the state toggles of every cycle (CSV)\n");
+    printf("      --stuck G:V     Tie NAND2 gate G of every core step to V (0/1);\n");
+    printf("                      needs the aletheia-fault binary (make aletheia-fault)\n");
     printf("      --dma-inject C:SRC:DST:N\n");
     printf("                      A device on the expansion slot programs the DMA\n");
     printf("                      from cycle C (copies N words SRC -> DST, physical)\n");
@@ -259,6 +263,15 @@ static int parse_dma(options_t *o, const char *val) {
     o->slot_regs[0] = (unsigned)src;
     o->slot_regs[1] = (unsigned)dst;
     o->slot_regs[2] = (unsigned)n;
+    return 0;
+}
+
+static int parse_stuck(options_t *o, const char *val) {
+    char *end;
+    long gate = strtol(val, &end, 10);
+    if (*end != ':' || (end[1] != '0' && end[1] != '1') || end[2] != '\0' || gate < 0) return fail("stuck-at spec", val, " (GATE:0|1)");
+    o->stuck_gate = gate;
+    o->stuck_value = end[1] - '0';
     return 0;
 }
 
@@ -337,6 +350,7 @@ static int parse_value(options_t *o, const char *opt, const char *val) {
     if (strcmp(opt, "--load") == 0) return set_path(&o->load_path, val);
     if (strcmp(opt, "--power-off") == 0) return parse_power_off(o, val);
     if (strcmp(opt, "--dma-inject") == 0) return parse_dma(o, val);
+    if (strcmp(opt, "--stuck") == 0) return parse_stuck(o, val);
     if (strcmp(opt, "--save") == 0) return parse_save(o, val);
     if (strcmp(opt, "--timer-div") == 0) return parse_timer_div(o, val);
     if (strcmp(opt, "--dram-leak") == 0) return parse_dram_leak(o, val);
@@ -402,13 +416,19 @@ static int arm_faults(alt_machine_t *m, const options_t *o, int quiet) {
     return 0;
 }
 
+static int arm_stuck(alt_machine_t *m, const options_t *o) {
+    if (o->stuck_gate < 0 || alt_stuck_gate(m, o->stuck_gate, o->stuck_value) == ALT_OK) return 0;
+    fprintf(stderr, "--stuck needs the aletheia-fault binary (make aletheia-fault)\n");
+    return -1;
+}
+
 static int configure(alt_machine_t *m, const options_t *o, int quiet) {
     alt_set_arch(m, o->arch);
     alt_set_hz(m, o->hz);
     alt_set_output(m, print_output, NULL);
     alt_set_cycle_hook(m, on_cycle, (void *)o);
     type_input(m, o->input);
-    if (arm_faults(m, o, quiet)) return -1;
+    if (arm_faults(m, o, quiet) || arm_stuck(m, o)) return -1;
     alt_set_straps(m, o->straps);
     alt_set_timer_div(m, o->timer_div);
     alt_set_dram_leak(m, (unsigned long)o->dram_leak);
@@ -485,6 +505,7 @@ static int finish(alt_machine_t *m, const options_t *o, alt_stop_t stop) {
     if (stop == ALT_STOP_BREAK) status = 3;
     printf("\nSimulation finished.\n");
     printf("Cycles executed: %llu\n", (unsigned long long)alt_cycles(m));
+    if (alt_gates_per_step(m) > 0) printf("NAND2 gates per core step: %lu\n", alt_gates_per_step(m));
     dump_state(m);
     unsigned diffs = 0;
     if (o->ref_check) alt_ref_check(m, (uint64_t)o->max_cycles, stdout, &diffs);
@@ -509,6 +530,7 @@ int main(int argc, char **argv) {
     o.straps = ALT_STRAP_DEFAULT;
     o.timer_div = 1;
     o.dram_leak = 64;
+    o.stuck_gate = -1;
     int parsed = parse_args(&o, argc, argv);
     if (parsed != 0) return parsed > 0 ? 0 : 1;
     alt_machine_t *m;

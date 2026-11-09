@@ -31,7 +31,8 @@ typedef enum {
     ALT_ERR_ARG,
     ALT_ERR_IO,
     ALT_ERR_FORMAT,
-    ALT_ERR_FULL
+    ALT_ERR_FULL,
+    ALT_ERR_UNSUPPORTED
 } alt_status_t;
 
 typedef enum {
@@ -105,6 +106,8 @@ ALT_API alt_status_t alt_send_key(alt_machine_t *machine, unsigned char key);
 ALT_API alt_status_t alt_add_fault(alt_machine_t *machine, uint64_t cycle, alt_fault_target_t target,
                                    unsigned index, unsigned bit);
 ALT_API alt_status_t alt_add_fault_spec(alt_machine_t *machine, const char *spec);
+ALT_API alt_status_t alt_stuck_gate(alt_machine_t *machine, long gate, int value);
+ALT_API unsigned long alt_gates_per_step(const alt_machine_t *machine);
 ALT_API void alt_power_cut(alt_machine_t *machine, uint64_t at_cycle, unsigned long off_cycles);
 ALT_API void alt_slot_dma(alt_machine_t *machine, uint64_t at_cycle, uint32_t src, uint32_t dst, uint32_t count);
 ALT_API alt_status_t alt_break_add(alt_machine_t *machine, uint32_t pc);

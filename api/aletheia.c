@@ -2,6 +2,7 @@
 #include "../simulation/simulation.h"
 #include "../simulation/snapshot.h"
 #include "../simulation/refcheck.h"
+#include "../simulation/stuck.h"
 #include "../isa/isa.h"
 #include <stdlib.h>
 #include <string.h>
@@ -78,7 +79,7 @@ const char *alt_version(void) {
 
 const char *alt_status_name(alt_status_t status) {
     static const char *names[] = {"ok", "out of memory", "invalid argument", "input/output error",
-                                  "invalid format", "full"};
+                                  "invalid format", "full", "unsupported in this build"};
     if ((unsigned)status >= sizeof names / sizeof names[0]) return "unknown status";
     return names[status];
 }
@@ -200,6 +201,17 @@ alt_status_t alt_add_fault_spec(alt_machine_t *machine, const char *spec) {
     fault_t f;
     if (!spec || !fault_parse(spec, &f)) return ALT_ERR_FORMAT;
     return simulator_add_fault(&machine->sim, &f) ? ALT_OK : ALT_ERR_FULL;
+}
+
+alt_status_t alt_stuck_gate(alt_machine_t *machine, long gate, int value) {
+    (void)machine;
+    if (gate < 0 || (value != 0 && value != 1)) return ALT_ERR_ARG;
+    return stuck_arm(gate, (bit)value) == 0 ? ALT_OK : ALT_ERR_UNSUPPORTED;
+}
+
+unsigned long alt_gates_per_step(const alt_machine_t *machine) {
+    (void)machine;
+    return stuck_gates_last_cycle();
 }
 
 void alt_power_cut(alt_machine_t *machine, uint64_t at_cycle, unsigned long off_cycles) {

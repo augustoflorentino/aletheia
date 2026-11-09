@@ -39,7 +39,7 @@ SYSTEM_SRCS = system/power.c system/config.c system/memsys.c system/board.c syst
 
 SIMULATION_SRCS = simulation/scheduler.c \
                   simulation/timing.c simulation/waveform.c simulation/debugger.c \
-                  simulation/simulator.c simulation/fault.c simulation/snapshot.c simulation/power_trace.c simulation/refcheck.c
+                  simulation/simulator.c simulation/fault.c simulation/snapshot.c simulation/power_trace.c simulation/refcheck.c simulation/stuck_none.c
 
 REF_SRCS = ref/iss.c
 ISA_SRCS = isa/optable.c isa/encoding.c isa/assembler.c isa/disassembler.c isa/asm_file.c
@@ -109,6 +109,11 @@ install: lib
 	ln -sf libaletheia.so.$(MAJOR) $(DESTDIR)$(PREFIX)/lib/libaletheia.so
 	sed -e 's|@PREFIX@|$(PREFIX)|' -e 's|@VERSION@|$(VERSION)|' aletheia.pc.in > $(DESTDIR)$(PREFIX)/lib/pkgconfig/aletheia.pc
 
+GATE_OBJS = $(patsubst %.c,build/obj$(MEM)/%.o,$(filter core/gates/%,$(CORE_SRCS)) simulation/stuck_none.c)
+
+aletheia-fault: $(filter-out $(GATE_OBJS),$(OBJS)) $(CLI_OBJS) build/obj$(MEM)/synth/gates_stuck.o $(MEM_STAMP)
+	$(CC) $(LDFLAGS) -o $@ $(filter %.o,$^)
+
 build/obj$(MEM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -143,7 +148,7 @@ test-san:
 	if [ $$rc -eq 0 ]; then echo "UBSAN CLEAN"; else echo "UBSAN ISSUES"; fi; exit $$rc
 
 clean:
-	rm -rf build aletheia
+	rm -rf build aletheia aletheia-fault
 
 -include $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) build/bench.d build/bench-gates.d
 

@@ -1,4 +1,5 @@
 #include "simulator.h"
+#include "stuck.h"
 #include <stdio.h>
 #include <time.h>
 
@@ -224,6 +225,7 @@ void simulator_close_vcd(simulator_t *sim) {
 
 void simulator_clock_tick(simulator_t *sim) {
     static void (*const step[])(board_t *) = {board_step, board_step_mc, board_step_pipe};
+    stuck_new_cycle();
     board_clock(&sim->board, step[sim->arch]);
 }
 
