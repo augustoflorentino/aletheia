@@ -3,6 +3,8 @@
 
 #if defined(ALETHEIA_NETLIST)
 typedef unsigned int bit;
+#elif defined(ALETHEIA_LANES)
+typedef unsigned long long bit;
 #else
 typedef unsigned char bit;
 #endif

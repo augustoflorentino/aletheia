@@ -150,7 +150,7 @@ test-san:
 clean:
 	rm -rf build aletheia aletheia-fault
 
--include $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) build/bench.d build/bench-gates.d
+-include $(LANE_OBJS:.o=.d) build/lanes.d $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) build/bench.d build/bench-gates.d
 
 check-compliance:
 	@python3 tools/check_hw.py
@@ -168,6 +168,16 @@ demos: aletheia
 	  if cmp -s build/demo.single.uart build/demo.multi.uart && cmp -s build/demo.single.uart build/demo.pipe.uart \
 	     && grep -q 'exit 0' build/demo.single.uart; then echo "demo ok: $$d"; else echo "DEMO FAIL: $$d"; rc=1; fi; \
 	done; rm -f build/demo.*; exit $$rc
+
+LANE_SRCS = $(filter-out core/gates/% simulation/% api/%,$(ALL_SRCS)) synth/gates_lanes.c
+LANE_OBJS = $(patsubst %.c,build/lanes$(MEM)/%.o,$(LANE_SRCS))
+
+build/lanes$(MEM)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DALETHEIA_LANES -c $< -o $@
+
+build/lanes: tools/lanes.c $(LANE_OBJS) $(MEM_STAMP)
+	$(CC) $(CFLAGS) -DALETHEIA_LANES $< $(LANE_OBJS) -o $@
 
 BENCH_CYCLES ?= 5000
 
