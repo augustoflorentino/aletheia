@@ -56,12 +56,16 @@ static void make_id(int index, char *id) {
 static uint32_t sample(const vcd_signal_t *sig) {
     uint32_t v = 0;
     for (int i = 0; i < sig->width; i++) {
-        v |= (uint32_t)(sig->value_ptr[i] & 1) << i;
+        v |= (uint32_t)(*(const bit *)((const char *)sig->value_ptr + (size_t)i * sig->stride) & 1) << i;
     }
     return v;
 }
 
 int vcd_add_signal(vcd_writer_t *vcd, const char *name, int width, bit *value_ptr) {
+    return vcd_add_signal_stride(vcd, name, width, value_ptr, sizeof(bit));
+}
+
+int vcd_add_signal_stride(vcd_writer_t *vcd, const char *name, int width, bit *value_ptr, size_t stride) {
     if (vcd->signal_count >= MAX_VCD_SIGNALS || width < 1 || width > 32 || value_ptr == 0) {
         return -1;
     }
@@ -73,6 +77,7 @@ int vcd_add_signal(vcd_writer_t *vcd, const char *name, int width, bit *value_pt
     sig->width = width;
     make_id(idx, sig->id);
     sig->value_ptr = value_ptr;
+    sig->stride = stride;
     sig->last_value = 0;
     sig->dumped = 0;
     vcd->signal_count++;

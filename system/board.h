@@ -96,6 +96,13 @@ typedef struct {
     bit clock_out;
     bit reset_out;
     bit halt;
+    bit probe_instr[32];
+    bit probe_addr[32];
+    bit probe_wdata[32];
+    bit probe_rdata[32];
+    bit probe_read;
+    bit probe_write;
+    bit probe_store;
 } board_t;
 
 void board_init(board_t *board);

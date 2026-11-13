@@ -309,6 +309,7 @@ void board_step_pipe(board_t *b) {
     bit ii_pc[32], ii_instr[32];
     pread32(b->if_id.pc, ii_pc);
     pread32(b->if_id.instruction, ii_instr);
+    memsys_watch_instr(b, ii_instr);
     bit ii_valid = b->if_id.valid.q;
     decoder_set_instruction(&b->dec, ii_instr);
     decoder_propagate(&b->dec);

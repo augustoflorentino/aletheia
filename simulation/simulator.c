@@ -186,6 +186,23 @@ void simulator_set_verbose(simulator_t *sim, int verbose) {
     sim->verbose = verbose;
 }
 
+static void add_stage(vcd_writer_t *vcd, const char *name, d_flip_flop_t *pc, d_flip_flop_t *valid) {
+    vcd_begin_module(vcd, name);
+    vcd_add_signal_stride(vcd, "pc", 32, &pc[0].q, sizeof pc[0]);
+    vcd_add_signal(vcd, "valid", 1, &valid->q);
+    vcd_end_module(vcd);
+}
+
+static void add_pipeline_signals(simulator_t *sim) {
+    board_t *b = &sim->board;
+    vcd_begin_module(&sim->vcd, "pipeline");
+    add_stage(&sim->vcd, "if_id", b->if_id.pc, &b->if_id.valid);
+    vcd_add_signal_stride(&sim->vcd, "if_id_instr", 32, &b->if_id.instruction[0].q, sizeof b->if_id.instruction[0]);
+    add_stage(&sim->vcd, "id_ex", b->id_ex.pc, &b->id_ex.valid);
+    add_stage(&sim->vcd, "ex_mem", b->ex_mem.pc, &b->ex_mem.valid);
+    vcd_end_module(&sim->vcd);
+}
+
 int simulator_open_vcd(simulator_t *sim, const char *filename) {
     if (!vcd_open(&sim->vcd, filename)) {
         return 0;
@@ -205,6 +222,17 @@ int simulator_open_vcd(simulator_t *sim, const char *filename) {
     vcd_add_signal(&sim->vcd, "in_exception", 1, &b->exc.in_exception.q);
     vcd_add_signal(&sim->vcd, "mmu_en", 1, &b->mmu_en.q);
     vcd_add_signal(&sim->vcd, "user_mode", 1, &b->umode.q);
+    vcd_add_signal(&sim->vcd, "instr", 32, b->probe_instr);
+    vcd_begin_module(&sim->vcd, "bus");
+    vcd_add_signal(&sim->vcd, "addr", 32, b->probe_addr);
+    vcd_add_signal(&sim->vcd, "wdata", 32, b->probe_wdata);
+    vcd_add_signal(&sim->vcd, "rdata", 32, b->probe_rdata);
+    vcd_add_signal(&sim->vcd, "re", 1, &b->probe_read);
+    vcd_add_signal(&sim->vcd, "we", 1, &b->probe_write);
+    vcd_add_signal(&sim->vcd, "store", 1, &b->probe_store);
+    vcd_add_signal(&sim->vcd, "dma_hold", 1, &b->dma.dack);
+    vcd_end_module(&sim->vcd);
+    if (sim->arch == SIM_ARCH_PIPE) add_pipeline_signals(sim);
     vcd_begin_module(&sim->vcd, "regs");
     for (int i = 1; i < 32; i++) {
         char name[8];

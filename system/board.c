@@ -190,6 +190,7 @@ void board_step(board_t *board) {
 
     decoder_set_instruction(&board->dec, instr);
     decoder_propagate(&board->dec);
+    memsys_watch_instr(board, instr);
 
     bit one_w[32] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -318,6 +319,7 @@ void board_step_mc(board_t *board) {
     bit ir_word[32];
     copy_word(board->ir.reg.data_out, ir_word);
     decoder_set_instruction(&board->dec, ir_word);
+    memsys_watch_instr(board, ir_word);
     decoder_propagate(&board->dec);
 
     bit frozen = board->halt;

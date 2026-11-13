@@ -35,6 +35,7 @@ typedef struct {
 
 void memsys_irq(board_t *b);
 void memsys_probe(board_t *b, bit *vaddr, bit *wdata, bit read, bit write, mem_port_t *p);
+void memsys_watch_instr(board_t *b, bit *instr);
 void memsys_commit(board_t *b, mem_port_t *p, bit enable);
 void board_exceptions(board_t *b, bit *epc, bit fault, bit undefined, bit irq_allowed,
                       bit reti, bit run, exc_outcome_t *out);

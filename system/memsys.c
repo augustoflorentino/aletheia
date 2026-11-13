@@ -202,6 +202,11 @@ void memsys_probe(board_t *b, bit *vaddr, bit *wdata, bit read, bit write, mem_p
     read_ram(b, p, cached);
     read_io(b, p, io_data);
     mux2_32(cached, io_data, p->io_sel, p->rdata);
+    copy_word(vaddr, b->probe_addr);
+    copy_word(wdata, b->probe_wdata);
+    copy_word(p->rdata, b->probe_rdata);
+    b->probe_read = read;
+    b->probe_write = write;
 }
 
 static void commit_ram(board_t *b, mem_port_t *p, bit store_en, bit load_en) {
@@ -295,9 +300,14 @@ static void commit_system(board_t *b, mem_port_t *p, bit store_en) {
     mmu_set_fill(&b->mmu, AND(p->translate, AND(NOT(b->mmu.tlb_hit), b->mmu.pt_hit)));
 }
 
+void memsys_watch_instr(board_t *b, bit *instr) {
+    copy_word(instr, b->probe_instr);
+}
+
 void memsys_commit(board_t *b, mem_port_t *p, bit enable) {
     bit go = AND(enable, NOT(p->fault));
     bit store_en = AND(p->write, go);
+    b->probe_store = store_en;
     bit load_en = AND(p->read, go);
     commit_ram(b, p, store_en, load_en);
     commit_devices(b, p, store_en, load_en);

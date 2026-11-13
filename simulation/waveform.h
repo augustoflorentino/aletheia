@@ -16,6 +16,7 @@ typedef struct {
     int width;
     char id[VCD_ID_LEN];
     bit *value_ptr;
+    size_t stride;
     uint32_t last_value;
     int dumped;
 } vcd_signal_t;
@@ -35,6 +36,7 @@ void vcd_close(vcd_writer_t *vcd);
 void vcd_set_timescale(vcd_writer_t *vcd, const char *scale);
 void vcd_begin_module(vcd_writer_t *vcd, const char *name);
 void vcd_end_module(vcd_writer_t *vcd);
+int vcd_add_signal_stride(vcd_writer_t *vcd, const char *name, int width, bit *value_ptr, size_t stride);
 int vcd_add_signal(vcd_writer_t *vcd, const char *name, int width, bit *value_ptr);
 void vcd_write_header(vcd_writer_t *vcd);
 void vcd_write_initial(vcd_writer_t *vcd);
