@@ -66,14 +66,46 @@ memory and devices, and writes back, all propagating through gates.
   each with its own vector; EPC is saved and `reti` returns. A timer raises the
   IRQ through a PIC with a mask register.
 - **I/O**, all memory-mapped at `0xFFFFFF00`: UART, GPIO, timer, PIC, an
-  8-character display and a DMA engine.
+  8-character display, a DMA engine and an expansion slot that can drive it.
 - **Firmware**: a boot ROM (`firmware/boot.asm`) that sizes and tests RAM,
   checks the timer and the UART, and drops into a monitor with `m` (dump),
   `w` (write) and `g` (go).
-- **Observability**: VCD waveforms (`-w`), breakpoints (`-b`), a live front
-  panel (`--panel`), bit flips in the PC, a register or RAM at a chosen cycle
-  (`-f`), and a power cut that shows what the DRAM kept (`--power-off`,
-  `demos/coldboot.asm`).
+- **Size**: about 500,000 NAND2 gates are evaluated per cycle, at roughly
+  0.6 ms per cycle on one core of a desktop CPU.
+
+## How it grew
+
+Finishing the computer did not end the curiosity, it moved it. *Where data
+lives* turned into *how data leaks*: if every bit has a physical home, what
+happens when the power is cut, a gate is broken, a device reads memory behind
+the CPU's back, or someone watches how much the circuit switches? Answering
+that changed what the project is for, from a computer you can read to a
+hardware security lab you can break on purpose, with nothing hidden from you.
+
+What was added along the way:
+
+- **Capacity**: memory went from 256 words to selectable 256/1K/4K, the ROM to
+  1K words, and the MMIO page moved to the top of the address space.
+- **Fault injection**:
+  - flip any bit of the PC, a register or RAM at a chosen cycle (`-f`);
+  - tie one NAND gate to 0 or 1 for the whole run (`--stuck`, in the
+    `aletheia-fault` build);
+  - run 63 machines at once, each with its own stuck gate, by bit-slicing
+    (`build/lanes`): every wire becomes a 64-bit word, one lane per machine.
+- **Physical attacks**:
+  - cold boot: cut the power for N cycles and see what the DRAM kept
+    (`--power-off`, `--dram-leak`, `demos/coldboot.asm`);
+  - power analysis: count the state bits that toggle every cycle
+    (`--power FILE`), against a PIN check that is easy to attack
+    (`demos/pin.asm`);
+  - DMA attack: a card on the expansion slot copies kernel memory past the MMU
+    (`--dma-inject`, `demos/dmaattack.asm`).
+- **Observability**: VCD waveforms with the bus, the pipeline and every
+  register (`-w`), breakpoints, a live front panel (`--panel`), snapshots you
+  can save and resume from (`--save`, `--load`), and `--ref` to compare a run
+  against the reference model (it exits with 4 on any difference).
+- **A library**: the whole machine is available as `libaletheia`, so other
+  programs can drive it (see below).
 
 ## Build & run
 
@@ -88,9 +120,12 @@ make demos                 # every demo on the three cores, outputs must match
 ```
 
 Demos in `demos/`: `counter` (timer interrupts), `fib`, `sort`, `pin` (reads
-a PIN over the UART), `dma`, `user` (user mode and its traps) and `coldboot`.
+a PIN over the UART), `dma`, `user` (user mode and its traps), `dmaattack` and
+`coldboot`.
 
-Other targets: `make bench`, `make test-san` (UBSan), `make format`.
+Other targets: `make aletheia-fault` (stuck-at gates), `make build/lanes`
+(bit-sliced fault campaigns), `make bench`, `make test-san` (UBSan),
+`make format`.
 
 ## Library
 
@@ -104,9 +139,10 @@ The interface is `include/aletheia/aletheia.h`, every name prefixed `alt_`. A
 machine is an opaque `alt_machine_t` created with an optional allocator; you
 load a ROM, power it on, then `alt_step` or `alt_run` it and read its state
 (PC, registers, RAM, display, pipeline stages, UART output). Faults, power
-cuts and VCD traces are part of the API. Each machine is independent, so one
-process can run several. The CLI in `cli/` uses only this interface, and
-`make check-api` verifies it.
+cuts, DMA injection, VCD and power traces, snapshots in memory or on disk, and
+the reference check are all part of the API. Each machine is independent, so
+one process can run several. The CLI in `cli/` uses only this interface, and
+`make check-api` verifies it. The full reference is in [docs/api.md](docs/api.md).
 
 ---
 
