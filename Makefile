@@ -227,4 +227,33 @@ format:
 format-check:
 	@clang-format --dry-run --Werror $(FORMAT_SRCS) && echo "format ok"
 
-.PHONY: all lib check-api install clean check-compliance test test-san bench demos format format-check
+build: all
+
+fmt: format
+
+lint: format-check check-compliance check-api
+
+check: lint all test demos test-san
+
+dist:
+	@mkdir -p build
+	git archive --format=tar.gz --prefix=aletheia-$(VERSION)/ -o build/aletheia-$(VERSION).tar.gz HEAD
+	@echo "build/aletheia-$(VERSION).tar.gz"
+
+help:
+	@echo "make                 build ./aletheia (MEM=256|1024|4096)"
+	@echo "make lib             static and shared libaletheia"
+	@echo "make test            hardware rules and the test suite"
+	@echo "make test-san        the suite under sanitizers (SAN=address,undefined)"
+	@echo "make demos           every demo on the three cores"
+	@echo "make lint            format, hardware rules and API boundary"
+	@echo "make fmt             format the bench code in place"
+	@echo "make check           everything the CI runs"
+	@echo "make bench           gates per cycle and cycles per second"
+	@echo "make aletheia-fault  CLI with stuck-at gates (--stuck)"
+	@echo "make build/lanes     bit-sliced fault campaigns"
+	@echo "make install         library, header and pkg-config (PREFIX=/usr/local)"
+	@echo "make dist            source tarball of HEAD"
+	@echo "make clean           remove build output"
+
+.PHONY: all build lib check-api install clean check-compliance test test-san bench demos format fmt format-check lint check dist help
