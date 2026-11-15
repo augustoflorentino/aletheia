@@ -137,20 +137,39 @@ test: check-compliance $(TEST_BINS)
 	@rc=0; for t in $(TEST_BINS); do ./$$t || rc=1; done; \
 	if [ $$rc -eq 0 ]; then echo "ALL TESTS PASSED"; else echo "TESTS FAILED"; fi; exit $$rc
 
-test-san:
-	@echo "Running tests under gcc UBSan (-fsanitize=undefined)..."
-	@mkdir -p build; rc=0; for t in $(TESTS); do \
-	  case " $(NL_TESTS) " in *" $$t "*) src="-DALETHEIA_NETLIST $(NL_SRCS)";; *) src="$(ALL_SRCS)";; esac; \
-	  $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -I. $(MEM_FLAG_$(MEM)) -fsanitize=undefined -fno-sanitize-recover=all -g \
-	    $$t.c $$src -o build/san.bin 2>/dev/null && ./build/san.bin >/dev/null 2>&1 || { echo "SAN FAIL: $$t"; rc=1; }; \
-	  rm -f build/san.bin; \
-	done; \
-	if [ $$rc -eq 0 ]; then echo "UBSAN CLEAN"; else echo "UBSAN ISSUES"; fi; exit $$rc
+SAN ?= address,undefined
+SAN_FLAGS = -std=c11 -D_DEFAULT_SOURCE -O1 -g -I. $(MEM_FLAG_$(MEM)) \
+            -fsanitize=$(SAN) -fno-sanitize-recover=all -fno-omit-frame-pointer
+SAN_OBJS = $(patsubst %.c,build/san$(MEM)/%.o,$(ALL_SRCS))
+SAN_NL_OBJS = $(patsubst %.c,build/san-nl$(MEM)/%.o,$(NL_SRCS))
+SAN_BINS = $(patsubst tests/%,build/san-tests$(MEM)/%,$(TESTS))
+
+build/san$(MEM)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(SAN_FLAGS) -MMD -MP -c $< -o $@
+
+build/san-nl$(MEM)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(SAN_FLAGS) -MMD -MP -DALETHEIA_NETLIST -c $< -o $@
+
+build/san-tests$(MEM)/%: tests/%.c tests/test.h tests/refmodel.h ref/iss.h $(SAN_OBJS)
+	@mkdir -p build/san-tests$(MEM)
+	$(CC) $(SAN_FLAGS) $< $(SAN_OBJS) -o $@
+
+$(patsubst tests/%,build/san-tests$(MEM)/%,$(NL_TESTS)): build/san-tests$(MEM)/%: tests/%.c tests/test.h $(SAN_NL_OBJS)
+	@mkdir -p build/san-tests$(MEM)
+	$(CC) $(SAN_FLAGS) -DALETHEIA_NETLIST $< $(SAN_NL_OBJS) -o $@
+
+test-san: $(SAN_BINS)
+	@echo "Running tests under -fsanitize=$(SAN)..."
+	@rc=0; for t in $(SAN_BINS); do ./$$t >/dev/null 2>build/san.log || { echo "SAN FAIL: $$t"; cat build/san.log; rc=1; }; done; \
+	rm -f build/san.log; \
+	if [ $$rc -eq 0 ]; then echo "SANITIZERS CLEAN"; else echo "SANITIZER ISSUES"; fi; exit $$rc
 
 clean:
 	rm -rf build aletheia aletheia-fault
 
--include $(LANE_OBJS:.o=.d) build/lanes.d $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) build/bench.d build/bench-gates.d
+-include $(LANE_OBJS:.o=.d) build/lanes.d $(OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(NL_OBJS:.o=.d) $(TEST_BINS:=.d) $(SAN_OBJS:.o=.d) $(SAN_NL_OBJS:.o=.d) build/bench.d build/bench-gates.d
 
 check-compliance:
 	@python3 tools/check_hw.py
