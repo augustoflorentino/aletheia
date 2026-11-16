@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install clang-format
+        run: pipx install clang-format==22.1.8
+      - name: Format
+        run: make format-check
+      - name: Hardware rules
+        run: make check-compliance
+
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build
+        run: make -j"$(nproc)" CC=${{ matrix.cc }} all aletheia-fault build/lanes
+      - name: API boundary
+        run: make CC=${{ matrix.cc }} check-api
+      - name: Tests
+        run: make -j"$(nproc)" CC=${{ matrix.cc }} test
+      - name: Demos on the three cores
+        run: make CC=${{ matrix.cc }} demos
+
+  memory:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        mem: [1024, 4096]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tests
+        run: make -j"$(nproc)" MEM=${{ matrix.mem }} all test
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: ASan and UBSan
+        run: make -j"$(nproc)" test-san
