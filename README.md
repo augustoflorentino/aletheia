@@ -32,8 +32,8 @@ wants to watch a machine work, and then break it, one gate at a time.**
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.svg">
-    <img src="docs/images/panel-light.svg" alt="The front panel while the pipelined core sorts sixteen numbers" width="760">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.gif">
+    <img src="docs/images/panel-light.gif" alt="The front panel while the pipelined core sorts sixteen numbers, from reset to halt" width="755">
   </picture>
 </p>
 
