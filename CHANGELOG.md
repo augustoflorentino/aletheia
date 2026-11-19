@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-18
+
 ### Added
 
 - The machine: a 32-bit MIPS-like computer built only from gates,
@@ -36,4 +38,5 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `make test-san`, which runs the suite under ASan and UBSan, and `make
   check`, which runs everything the CI runs.
 
-[Unreleased]: https://github.com/augustoflorentino/aletheia/commits/main
+[Unreleased]: https://github.com/augustoflorentino/aletheia/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/augustoflorentino/aletheia/releases/tag/v0.9.0
