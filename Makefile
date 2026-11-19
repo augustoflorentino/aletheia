@@ -100,8 +100,9 @@ check-api: $(SHARED_LIB) $(CLI_OBJS)
 	@$(CC) -o build/cli-shared $(CLI_OBJS) -L$(LIBDIR) -l:libaletheia.so.$(VERSION) && rm -f build/cli-shared
 	@echo "api ok: $$(nm -D --defined-only $(SHARED_LIB) | grep -c ' T alt_') functions, cli uses only the public API"
 
-install: lib
-	install -d $(DESTDIR)$(PREFIX)/include/aletheia $(DESTDIR)$(PREFIX)/lib/pkgconfig
+install: aletheia lib
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/include/aletheia $(DESTDIR)$(PREFIX)/lib/pkgconfig
+	install -m 755 aletheia $(DESTDIR)$(PREFIX)/bin/
 	install -m 644 include/aletheia/aletheia.h $(DESTDIR)$(PREFIX)/include/aletheia/
 	install -m 644 $(STATIC_LIB) $(DESTDIR)$(PREFIX)/lib/
 	install -m 755 $(SHARED_LIB) $(DESTDIR)$(PREFIX)/lib/
@@ -252,7 +253,7 @@ help:
 	@echo "make bench           gates per cycle and cycles per second"
 	@echo "make aletheia-fault  CLI with stuck-at gates (--stuck)"
 	@echo "make build/lanes     bit-sliced fault campaigns"
-	@echo "make install         library, header and pkg-config (PREFIX=/usr/local)"
+	@echo "make install         CLI, library, header and pkg-config (PREFIX=/usr/local)"
 	@echo "make dist            source tarball of HEAD"
 	@echo "make clean           remove build output"
 

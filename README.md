@@ -143,7 +143,7 @@ git clone https://github.com/augustoflorentino/aletheia
 cd aletheia
 make                              # ./aletheia
 make MEM=4096                     # same, with 4096 words of SRAM
-make install PREFIX=/usr/local    # libaletheia, the header and aletheia.pc
+make install PREFIX=/usr/local    # the CLI, libaletheia, the header, aletheia.pc
 ```
 
 ## Usage

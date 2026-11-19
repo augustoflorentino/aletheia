@@ -20,7 +20,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   expansion slot.
 - Boot ROM with a self-test and a monitor (`--boot`).
 - `libaletheia`, with the `alt_` interface in `include/aletheia/aletheia.h`,
-  an `install` target and a pkg-config file. The CLI uses only this interface.
+  a pkg-config file and an `install` target that also installs the CLI. The
+  CLI uses only this interface.
 - Fault injection: bit flips at a chosen cycle (`-f`), stuck-at gates
   (`--stuck`, in the `aletheia-fault` build) and bit-sliced campaigns of 63
   faulty machines (`build/lanes`).
